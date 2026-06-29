@@ -1,3 +1,6 @@
+"""
+cam_intrinsic.py
+"""
 
 import os
 import argparse
@@ -29,11 +32,11 @@ def main():
     # The known points are the checkerboard vertices (inside, excluding the out most corners)
     # Depending on your checkerboard layout, the parameters below willc change
     # TODO: Update the checkerboard parameters based on your own printed out board
-    checkerboard_width = 11
-    checkerboard_height = 8
-    checkerboard_size = 0.019
+    checkerboard_width = 6
+    checkerboard_height = 4
+    checkerboard_size = 0.037
     objp = np.zeros((checkerboard_width*checkerboard_height, 3), np.float32)
-    objp[:,:2] = np.mgrid[0:checkerboard_height, 0:checkerboard_width].T.reshape(-1,2)*checkerboard_size
+    objp[:, :2] = np.mgrid[0:checkerboard_width, 0:checkerboard_height].T.reshape(-1, 2) * checkerboard_size
 
     # Arrays to store object points and image points from all the images.
     objpoints = [] # 3d point in real world space
@@ -44,7 +47,7 @@ def main():
     for img in images:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         # Find the chess board corners
-        ret, corners = cv2.findChessboardCorners(gray, (checkerboard_height, checkerboard_width), None)
+        ret, corners = cv2.findChessboardCorners(gray, (checkerboard_width, checkerboard_height), None)
         # If found, add object points, image points (after refining them)
         if ret == True:
             objpoints.append(objp)
@@ -52,7 +55,7 @@ def main():
             corners2 = cv2.cornerSubPix(gray, corners, (5, 5), (-1,-1), criteria)
             imgpoints.append(corners2)
             # Draw and display the corners for introspection - do the corners/vertices drawn back onto the image match with the checkerboard in the camera view?
-            cv2.drawChessboardCorners(img, (checkerboard_height, checkerboard_width), corners2, ret)
+            cv2.drawChessboardCorners(img, (checkerboard_width, checkerboard_height), corners2, ret)
             cv2.imshow('img', img)
             cv2.waitKey(500)
     cv2.destroyAllWindows()
@@ -72,3 +75,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

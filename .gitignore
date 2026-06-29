@@ -1,2 +1,7 @@
 
 camera_2d_lidar_calibration/__pycache__/*
+.venv/
+__pycache__/
+*.pyc
+raw_lasers/
+debug_checkerboard/

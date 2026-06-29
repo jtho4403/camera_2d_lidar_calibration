@@ -1,3 +1,6 @@
+"""
+gui.py
+"""
 
 import cv2
 
@@ -219,10 +222,14 @@ class ImageVisInterface:
     line_start = -0.1
     line_spacing = 0.005
     board_origin = (tf_robot_board_to_robot @ (np.array([0,0,0,1]).reshape(4,1)))[:3,:]
-    board_y_direction = (tf_robot_board_to_robot @ (np.array([0,1,0,1]).reshape(4,1)))[:3,:] - board_origin
-    board_y_direction = board_y_direction / la.norm(board_y_direction) # normalise the direction just in case - it should be a unit vector to behind with
+    
+    # Use checkerboard X-axis as the horizontal wall direction.
+    # With the corrected checkerboard object grid, X corresponds to the board width.
+    board_x_direction = (tf_robot_board_to_robot @ (np.array([1,0,0,1]).reshape(4,1)))[:3,:] - board_origin
+    board_x_direction = board_x_direction / la.norm(board_x_direction)
+
     line_base = np.linspace(line_start, line_end, int((line_end - line_start)/line_spacing)+1)
-    line_points = board_origin.T + np.outer(line_base, board_y_direction)
+    line_points = board_origin.T + np.outer(line_base, board_x_direction)
     line_points_2d = line_points[:, :2]
     # Write this line to an output list
     self.camera_points.append(line_points_2d)
@@ -241,3 +248,4 @@ class ImageVisInterface:
     self.app.mainloop()
     assert self.verified, "Error: You must verify the quality of the image."
     return self.extracted, self.camera_points
+

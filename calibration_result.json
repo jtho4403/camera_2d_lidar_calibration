@@ -1,0 +1,1232 @@
+{
+  "created_utc": "2026-06-28T04:06:40.476010Z",
+  "method": "camera_2d_lidar_staged_custom_icp",
+  "transform_direction": "lidar_2d_to_camera_ground_plane_2d",
+  "transform_matrix_3x3": [
+    [
+      0.9996974044142091,
+      0.024598772479400302,
+      -0.14997313493198958
+    ],
+    [
+      -0.024598772479400295,
+      0.9996974044142092,
+      -0.07563496190316486
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "transform_summary": {
+    "yaw_deg": -1.4095480214769116,
+    "translation_x_m": -0.14997313493198958,
+    "translation_y_m": -0.07563496190316486,
+    "translation_magnitude_m": 0.16796603425520873,
+    "camera_origin_in_lidar_x_m": 0.14806722650402787,
+    "camera_origin_in_lidar_y_m": 0.07930123012177592,
+    "camera_origin_in_lidar_magnitude_m": 0.16796603425520873
+  },
+  "camera_intrinsics": [
+    [
+      522.00367955,
+      0.0,
+      636.71609061
+    ],
+    [
+      0.0,
+      522.00367955,
+      355.69182042
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "camera_distortion": [
+    [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "checkerboard_width_inner_corners": 6,
+  "checkerboard_height_inner_corners": 4,
+  "checkerboard_square_size_m": 0.037,
+  "image_count": 7,
+  "laser_count": 7,
+  "initial_transform": {
+    "source": "rough_manual_rig_measurement",
+    "manual_camera_origin_in_lidar_m": {
+      "x_forward": 0.11,
+      "y_left": 0.06,
+      "z_down": -0.045
+    },
+    "manual_relative_yaw_deg": 0.0,
+    "transform_matrix_3x3": [
+      [
+        1.0,
+        0.0,
+        -0.11
+      ],
+      [
+        0.0,
+        1.0,
+        -0.06
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "staged_icp": {
+    "stages": [
+      {
+        "stage": 1,
+        "distance_threshold_m": 0.3,
+        "max_iterations": 150,
+        "point_pairs_threshold": 20,
+        "iteration_count": 16,
+        "eligible_before": 276,
+        "total_before": 276,
+        "eligible_after": 276,
+        "total_after": 276,
+        "incremental_transform_3x3": [
+          [
+            0.9995522814042777,
+            0.02992050700612849,
+            -0.037606328115232145
+          ],
+          [
+            -0.02992050700612848,
+            0.9995522814042775,
+            -0.02805132589696485
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "incremental_yaw_deg": -1.7145746623011602,
+        "cumulative_transform_3x3": [
+          [
+            0.9995522814042777,
+            0.02992050700612849,
+            -0.1493523094900704
+          ],
+          [
+            -0.02992050700612848,
+            0.9995522814042775,
+            -0.08473320701054737
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "stage": 2,
+        "distance_threshold_m": 0.15,
+        "max_iterations": 150,
+        "point_pairs_threshold": 20,
+        "iteration_count": 1,
+        "eligible_before": 276,
+        "total_before": 276,
+        "eligible_after": 276,
+        "total_after": 276,
+        "incremental_transform_3x3": [
+          [
+            1.0,
+            -1.409146956603248e-17,
+            4.440892098500626e-16
+          ],
+          [
+            1.409146956603248e-17,
+            1.0,
+            -1.3877787807814457e-17
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "incremental_yaw_deg": 8.073817332707069e-16,
+        "cumulative_transform_3x3": [
+          [
+            0.9995522814042777,
+            0.029920507006128475,
+            -0.14935230949006995
+          ],
+          [
+            -0.029920507006128465,
+            0.9995522814042775,
+            -0.08473320701054739
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "stage": 3,
+        "distance_threshold_m": 0.1,
+        "max_iterations": 150,
+        "point_pairs_threshold": 20,
+        "iteration_count": 14,
+        "eligible_before": 267,
+        "total_before": 276,
+        "eligible_after": 260,
+        "total_after": 276,
+        "incremental_transform_3x3": [
+          [
+            0.9999858290404695,
+            -0.005323694041254466,
+            -0.0010740355767116484
+          ],
+          [
+            0.0053236940412544655,
+            0.9999858290404697,
+            0.00989215035661499
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "incremental_yaw_deg": 0.3050266408242482,
+        "cumulative_transform_3x3": [
+          [
+            0.9996974044142091,
+            0.024598772479400302,
+            -0.14997313493198958
+          ],
+          [
+            -0.024598772479400295,
+            0.9996974044142092,
+            -0.07563496190316486
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      }
+    ],
+    "final_residual_acceptance_threshold_m": 0.1
+  },
+  "residual_validation": {
+    "metric_methodology": {
+      "primary": "Orthogonal distance from each transformed LiDAR point to the infinite total-least-squares camera line for the corresponding pose.",
+      "secondary": "Nearest sampled camera-segment point distance, retained to expose endpoint and sampling effects.",
+      "line_fit_diagnostic": "Camera and transformed LiDAR lines are fitted with total least squares; robust MAD trimming is used for the LiDAR diagnostic fit."
+    },
+    "per_pose": [
+      {
+        "pose": "pose_01",
+        "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+        "acceptance_threshold_m": 0.1,
+        "orthogonal_point_to_line": {
+          "total_point_count": 55,
+          "accepted_point_count": 55,
+          "accepted_fraction": 1.0,
+          "all_points": {
+            "count": 55,
+            "mean_abs_m": 0.01083067466347417,
+            "rmse_m": 0.012199352880221394,
+            "median_m": 0.011251208074778972,
+            "p95_m": 0.018672931245131398,
+            "max_m": 0.020546496831031026
+          },
+          "accepted_points": {
+            "count": 55,
+            "mean_abs_m": 0.01083067466347417,
+            "rmse_m": 0.012199352880221394,
+            "median_m": 0.011251208074778972,
+            "p95_m": 0.018672931245131398,
+            "max_m": 0.020546496831031026
+          }
+        },
+        "sampled_segment_secondary": {
+          "total_point_count": 55,
+          "accepted_point_count": 53,
+          "accepted_fraction": 0.9636363636363636,
+          "all_points": {
+            "count": 55,
+            "mean_abs_m": 0.026802966042573918,
+            "rmse_m": 0.038512870234636884,
+            "median_m": 0.015480913785740914,
+            "p95_m": 0.08986789340300168,
+            "max_m": 0.12425129908175936
+          },
+          "accepted_points": {
+            "count": 53,
+            "mean_abs_m": 0.02337779661614862,
+            "rmse_m": 0.0318734510760382,
+            "median_m": 0.015466244059428426,
+            "p95_m": 0.0751335099804751,
+            "max_m": 0.09792973907421591
+          }
+        },
+        "fitted_line_diagnostics": {
+          "camera_line_point": [
+            0.7201275811441897,
+            -0.06474762915848035
+          ],
+          "camera_line_direction": [
+            -0.02511335427179096,
+            0.9996846099831784
+          ],
+          "camera_line_normal": [
+            -0.9996846099831784,
+            -0.02511335427179096
+          ],
+          "lidar_line_point": [
+            0.7093551708971292,
+            -0.03547415682695193
+          ],
+          "lidar_line_direction": [
+            0.008756754539056935,
+            0.999961658889951
+          ],
+          "lidar_robust_fit_inlier_count": 54,
+          "lidar_robust_fit_total_count": 55,
+          "lidar_robust_fit_inlier_fraction": 0.9818181818181818,
+          "angular_difference_deg": 1.9407719883577856,
+          "signed_normal_offset_m": 0.010033857654984376,
+          "absolute_normal_offset_m": 0.010033857654984376
+        }
+      },
+      {
+        "pose": "pose_02",
+        "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+        "acceptance_threshold_m": 0.1,
+        "orthogonal_point_to_line": {
+          "total_point_count": 38,
+          "accepted_point_count": 38,
+          "accepted_fraction": 1.0,
+          "all_points": {
+            "count": 38,
+            "mean_abs_m": 0.004113617940049065,
+            "rmse_m": 0.00518685062915152,
+            "median_m": 0.002815007836432272,
+            "p95_m": 0.009924472251081024,
+            "max_m": 0.010217056218937749
+          },
+          "accepted_points": {
+            "count": 38,
+            "mean_abs_m": 0.004113617940049065,
+            "rmse_m": 0.00518685062915152,
+            "median_m": 0.002815007836432272,
+            "p95_m": 0.009924472251081024,
+            "max_m": 0.010217056218937749
+          }
+        },
+        "sampled_segment_secondary": {
+          "total_point_count": 38,
+          "accepted_point_count": 36,
+          "accepted_fraction": 0.9473684210526315,
+          "all_points": {
+            "count": 38,
+            "mean_abs_m": 0.02069680810431093,
+            "rmse_m": 0.038465654550075966,
+            "median_m": 0.0036654291780883396,
+            "p95_m": 0.09301127563995085,
+            "max_m": 0.1260738851477388
+          },
+          "accepted_points": {
+            "count": 36,
+            "mean_abs_m": 0.015351709685272715,
+            "rmse_m": 0.028245851415492344,
+            "median_m": 0.003559238093361369,
+            "p95_m": 0.0725734316485265,
+            "max_m": 0.09041151119766126
+          }
+        },
+        "fitted_line_diagnostics": {
+          "camera_line_point": [
+            1.100393180463944,
+            -0.06721076299680731
+          ],
+          "camera_line_direction": [
+            -0.012068971401962125,
+            0.9999271673123491
+          ],
+          "camera_line_normal": [
+            -0.9999271673123491,
+            -0.012068971401962125
+          ],
+          "lidar_line_point": [
+            1.1021697018608352,
+            -0.02771705557687437
+          ],
+          "lidar_line_direction": [
+            0.014253208501334382,
+            0.9998984178642436
+          ],
+          "lidar_robust_fit_inlier_count": 36,
+          "lidar_robust_fit_total_count": 38,
+          "lidar_robust_fit_inlier_fraction": 0.9473684210526315,
+          "angular_difference_deg": 1.508194257923613,
+          "signed_normal_offset_m": -0.0022530404334718426,
+          "absolute_normal_offset_m": 0.0022530404334718426
+        }
+      },
+      {
+        "pose": "pose_03",
+        "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+        "acceptance_threshold_m": 0.1,
+        "orthogonal_point_to_line": {
+          "total_point_count": 31,
+          "accepted_point_count": 31,
+          "accepted_fraction": 1.0,
+          "all_points": {
+            "count": 31,
+            "mean_abs_m": 0.013453447261822937,
+            "rmse_m": 0.016120223171411926,
+            "median_m": 0.010283881473821694,
+            "p95_m": 0.027552382008810626,
+            "max_m": 0.0337340644740758
+          },
+          "accepted_points": {
+            "count": 31,
+            "mean_abs_m": 0.013453447261822937,
+            "rmse_m": 0.016120223171411926,
+            "median_m": 0.010283881473821694,
+            "p95_m": 0.027552382008810626,
+            "max_m": 0.0337340644740758
+          }
+        },
+        "sampled_segment_secondary": {
+          "total_point_count": 31,
+          "accepted_point_count": 29,
+          "accepted_fraction": 0.9354838709677419,
+          "all_points": {
+            "count": 31,
+            "mean_abs_m": 0.031135990287338825,
+            "rmse_m": 0.04484952826303653,
+            "median_m": 0.01727168323850451,
+            "p95_m": 0.10205312677433505,
+            "max_m": 0.13193888064073547
+          },
+          "accepted_points": {
+            "count": 29,
+            "mean_abs_m": 0.024872659411083135,
+            "rmse_m": 0.0334307337678566,
+            "median_m": 0.016727540759788006,
+            "p95_m": 0.07390853505592548,
+            "max_m": 0.09213655820331285
+          }
+        },
+        "fitted_line_diagnostics": {
+          "camera_line_point": [
+            1.4756889468074013,
+            -0.07039463615872618
+          ],
+          "camera_line_direction": [
+            0.061205129200927195,
+            0.9981252086584618
+          ],
+          "camera_line_normal": [
+            -0.9981252086584618,
+            0.061205129200927195
+          ],
+          "lidar_line_point": [
+            1.4901698520684927,
+            -0.04215794898096378
+          ],
+          "lidar_line_direction": [
+            0.007600954983731208,
+            0.9999711123244188
+          ],
+          "lidar_robust_fit_inlier_count": 31,
+          "lidar_robust_fit_total_count": 31,
+          "lidar_robust_fit_inlier_fraction": 1.0,
+          "angular_difference_deg": 3.0734819014287966,
+          "signed_normal_offset_m": -0.012725526498369229,
+          "absolute_normal_offset_m": 0.012725526498369229
+        }
+      },
+      {
+        "pose": "pose_04",
+        "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+        "acceptance_threshold_m": 0.1,
+        "orthogonal_point_to_line": {
+          "total_point_count": 45,
+          "accepted_point_count": 45,
+          "accepted_fraction": 1.0,
+          "all_points": {
+            "count": 45,
+            "mean_abs_m": 0.01585431392503008,
+            "rmse_m": 0.016722114107319164,
+            "median_m": 0.015713062154525094,
+            "p95_m": 0.02437551371622881,
+            "max_m": 0.02541909469436138
+          },
+          "accepted_points": {
+            "count": 45,
+            "mean_abs_m": 0.01585431392503008,
+            "rmse_m": 0.016722114107319164,
+            "median_m": 0.015713062154525094,
+            "p95_m": 0.02437551371622881,
+            "max_m": 0.02541909469436138
+          }
+        },
+        "sampled_segment_secondary": {
+          "total_point_count": 45,
+          "accepted_point_count": 41,
+          "accepted_fraction": 0.9111111111111111,
+          "all_points": {
+            "count": 45,
+            "mean_abs_m": 0.03634316768883962,
+            "rmse_m": 0.05041442602074987,
+            "median_m": 0.020914592252388835,
+            "p95_m": 0.11894441963878014,
+            "max_m": 0.13769323133109473
+          },
+          "accepted_points": {
+            "count": 41,
+            "mean_abs_m": 0.027680777959599865,
+            "rmse_m": 0.035380500790322025,
+            "median_m": 0.020071294641024476,
+            "p95_m": 0.07830163013580299,
+            "max_m": 0.09898823899874687
+          }
+        },
+        "fitted_line_diagnostics": {
+          "camera_line_point": [
+            0.8588542436473117,
+            -0.11510842778797423
+          ],
+          "camera_line_direction": [
+            -0.4839279914783622,
+            0.8751078213932945
+          ],
+          "camera_line_normal": [
+            -0.8751078213932945,
+            -0.4839279914783622
+          ],
+          "lidar_line_point": [
+            0.8170097134996003,
+            -0.07262693822307387
+          ],
+          "lidar_line_direction": [
+            -0.47919355530706376,
+            0.8777092551364467
+          ],
+          "lidar_robust_fit_inlier_count": 44,
+          "lidar_robust_fit_total_count": 45,
+          "lidar_robust_fit_inlier_fraction": 0.9777777777777777,
+          "angular_difference_deg": 0.30951609833633825,
+          "signed_normal_offset_m": 0.016060493694638512,
+          "absolute_normal_offset_m": 0.016060493694638512
+        }
+      },
+      {
+        "pose": "pose_05",
+        "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+        "acceptance_threshold_m": 0.1,
+        "orthogonal_point_to_line": {
+          "total_point_count": 40,
+          "accepted_point_count": 40,
+          "accepted_fraction": 1.0,
+          "all_points": {
+            "count": 40,
+            "mean_abs_m": 0.00992557136441414,
+            "rmse_m": 0.01165758358651972,
+            "median_m": 0.009423465020550883,
+            "p95_m": 0.017694123220311407,
+            "max_m": 0.022363349303860434
+          },
+          "accepted_points": {
+            "count": 40,
+            "mean_abs_m": 0.00992557136441414,
+            "rmse_m": 0.01165758358651972,
+            "median_m": 0.009423465020550883,
+            "p95_m": 0.017694123220311407,
+            "max_m": 0.022363349303860434
+          }
+        },
+        "sampled_segment_secondary": {
+          "total_point_count": 40,
+          "accepted_point_count": 38,
+          "accepted_fraction": 0.95,
+          "all_points": {
+            "count": 40,
+            "mean_abs_m": 0.022722046874746157,
+            "rmse_m": 0.037609476258225284,
+            "median_m": 0.009672260598211578,
+            "p95_m": 0.08725710465864524,
+            "max_m": 0.13179870570744845
+          },
+          "accepted_points": {
+            "count": 38,
+            "mean_abs_m": 0.017614706025137976,
+            "rmse_m": 0.026951943515333282,
+            "median_m": 0.009552035655835667,
+            "p95_m": 0.0648549584185653,
+            "max_m": 0.08617988172872375
+          }
+        },
+        "fitted_line_diagnostics": {
+          "camera_line_point": [
+            0.8359788477113469,
+            -0.09452413170916833
+          ],
+          "camera_line_direction": [
+            0.5353709617362912,
+            0.8446170335303206
+          ],
+          "camera_line_normal": [
+            -0.8446170335303206,
+            0.5353709617362912
+          ],
+          "lidar_line_point": [
+            0.8442156779032068,
+            -0.10006907996793202
+          ],
+          "lidar_line_direction": [
+            0.5439790293291615,
+            0.8390988116128537
+          ],
+          "lidar_robust_fit_inlier_count": 40,
+          "lidar_robust_fit_total_count": 40,
+          "lidar_robust_fit_inlier_fraction": 1.0,
+          "angular_difference_deg": 0.5858490281144627,
+          "signed_normal_offset_m": -0.009925571364414016,
+          "absolute_normal_offset_m": 0.009925571364414016
+        }
+      },
+      {
+        "pose": "pose_06",
+        "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+        "acceptance_threshold_m": 0.1,
+        "orthogonal_point_to_line": {
+          "total_point_count": 35,
+          "accepted_point_count": 35,
+          "accepted_fraction": 1.0,
+          "all_points": {
+            "count": 35,
+            "mean_abs_m": 0.004360978146924243,
+            "rmse_m": 0.005290449779480509,
+            "median_m": 0.00394552419658948,
+            "p95_m": 0.009944826936356562,
+            "max_m": 0.012237621673454567
+          },
+          "accepted_points": {
+            "count": 35,
+            "mean_abs_m": 0.004360978146924243,
+            "rmse_m": 0.005290449779480509,
+            "median_m": 0.00394552419658948,
+            "p95_m": 0.009944826936356562,
+            "max_m": 0.012237621673454567
+          }
+        },
+        "sampled_segment_secondary": {
+          "total_point_count": 35,
+          "accepted_point_count": 32,
+          "accepted_fraction": 0.9142857142857143,
+          "all_points": {
+            "count": 35,
+            "mean_abs_m": 0.02671457974820914,
+            "rmse_m": 0.04623747814076733,
+            "median_m": 0.007008580671914762,
+            "p95_m": 0.11299698129567218,
+            "max_m": 0.14033296884202207
+          },
+          "accepted_points": {
+            "count": 32,
+            "mean_abs_m": 0.01757065052944018,
+            "rmse_m": 0.029578123267120452,
+            "median_m": 0.006723343620726496,
+            "p95_m": 0.07148327258076606,
+            "max_m": 0.09110547901366875
+          }
+        },
+        "fitted_line_diagnostics": {
+          "camera_line_point": [
+            1.1822569274648733,
+            -0.03775700523060882
+          ],
+          "camera_line_direction": [
+            -0.4104271710891877,
+            0.9118933804078888
+          ],
+          "camera_line_normal": [
+            -0.9118933804078888,
+            -0.4104271710891877
+          ],
+          "lidar_line_point": [
+            1.1589557750424813,
+            0.008024480055081447
+          ],
+          "lidar_line_direction": [
+            -0.3941715164573522,
+            0.9190368956759633
+          ],
+          "lidar_robust_fit_inlier_count": 35,
+          "lidar_robust_fit_total_count": 35,
+          "lidar_robust_fit_inlier_fraction": 1.0,
+          "angular_difference_deg": 1.0173581647034011,
+          "signed_normal_offset_m": 0.0024582011557874334,
+          "absolute_normal_offset_m": 0.0024582011557874334
+        }
+      },
+      {
+        "pose": "pose_07",
+        "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+        "acceptance_threshold_m": 0.1,
+        "orthogonal_point_to_line": {
+          "total_point_count": 32,
+          "accepted_point_count": 32,
+          "accepted_fraction": 1.0,
+          "all_points": {
+            "count": 32,
+            "mean_abs_m": 0.02017702647036876,
+            "rmse_m": 0.021140881702750882,
+            "median_m": 0.01900667287221443,
+            "p95_m": 0.027090325791593935,
+            "max_m": 0.04498637513647903
+          },
+          "accepted_points": {
+            "count": 32,
+            "mean_abs_m": 0.02017702647036876,
+            "rmse_m": 0.021140881702750882,
+            "median_m": 0.01900667287221443,
+            "p95_m": 0.027090325791593935,
+            "max_m": 0.04498637513647903
+          }
+        },
+        "sampled_segment_secondary": {
+          "total_point_count": 32,
+          "accepted_point_count": 31,
+          "accepted_fraction": 0.96875,
+          "all_points": {
+            "count": 32,
+            "mean_abs_m": 0.02991278472362443,
+            "rmse_m": 0.03793330252560594,
+            "median_m": 0.019761519961076286,
+            "p95_m": 0.08092574041834742,
+            "max_m": 0.10778991001412638
+          },
+          "accepted_points": {
+            "count": 31,
+            "mean_abs_m": 0.027400619391672754,
+            "rmse_m": 0.03332502178936881,
+            "median_m": 0.019117644942426223,
+            "p95_m": 0.07079216263101257,
+            "max_m": 0.0860164975665734
+          }
+        },
+        "fitted_line_diagnostics": {
+          "camera_line_point": [
+            1.1671685649701407,
+            -0.04634054213858898
+          ],
+          "camera_line_direction": [
+            0.3695979200704553,
+            0.929191787242867
+          ],
+          "camera_line_normal": [
+            -0.929191787242867,
+            0.3695979200704553
+          ],
+          "lidar_line_point": [
+            1.1892576919291358,
+            -0.0432336240667823
+          ],
+          "lidar_line_direction": [
+            0.3688035206474545,
+            0.9295073766022746
+          ],
+          "lidar_robust_fit_inlier_count": 31,
+          "lidar_robust_fit_total_count": 32,
+          "lidar_robust_fit_inlier_fraction": 0.96875,
+          "angular_difference_deg": 0.04897589915923548,
+          "signed_normal_offset_m": -0.019376724900494212,
+          "absolute_normal_offset_m": 0.019376724900494212
+        }
+      }
+    ],
+    "overall": {
+      "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+      "acceptance_threshold_m": 0.1,
+      "orthogonal_point_to_line": {
+        "total_point_count": 276,
+        "accepted_point_count": 276,
+        "accepted_fraction": 1.0,
+        "all_points": {
+          "count": 276,
+          "mean_abs_m": 0.01115154897364682,
+          "rmse_m": 0.013535278767423605,
+          "median_m": 0.010277243384999774,
+          "p95_m": 0.0247230628350463,
+          "max_m": 0.04498637513647903
+        },
+        "accepted_points": {
+          "count": 276,
+          "mean_abs_m": 0.01115154897364682,
+          "rmse_m": 0.013535278767423605,
+          "median_m": 0.010277243384999774,
+          "p95_m": 0.0247230628350463,
+          "max_m": 0.04498637513647903
+        }
+      },
+      "sampled_segment_secondary": {
+        "total_point_count": 276,
+        "accepted_point_count": 260,
+        "accepted_fraction": 0.9420289855072463,
+        "all_points": {
+          "count": 276,
+          "mean_abs_m": 0.027762323777332665,
+          "rmse_m": 0.04222023614493772,
+          "median_m": 0.015928765735137962,
+          "p95_m": 0.10775493311322559,
+          "max_m": 0.14033296884202207
+        },
+        "accepted_points": {
+          "count": 260,
+          "mean_abs_m": 0.022034394752422633,
+          "rmse_m": 0.031398531484127426,
+          "median_m": 0.01547357892258467,
+          "p95_m": 0.07495632830590183,
+          "max_m": 0.09898823899874687
+        }
+      }
+    }
+  },
+  "physical_geometry_validation": {
+    "purpose": "Diagnostic sanity check only; manual housing measurements are not exact sensor optical-origin measurements.",
+    "measured_camera_origin_in_lidar_m": {
+      "x_forward": 0.11,
+      "y_left": 0.06,
+      "z_down": -0.045
+    },
+    "measured_yaw_deg": 0.0,
+    "estimated_transform_summary": {
+      "yaw_deg": -1.4095480214769116,
+      "translation_x_m": -0.14997313493198958,
+      "translation_y_m": -0.07563496190316486,
+      "translation_magnitude_m": 0.16796603425520873,
+      "camera_origin_in_lidar_x_m": 0.14806722650402787,
+      "camera_origin_in_lidar_y_m": 0.07930123012177592,
+      "camera_origin_in_lidar_magnitude_m": 0.16796603425520873
+    },
+    "estimated_camera_origin_in_lidar_m": {
+      "x_forward": 0.14806722650402787,
+      "y_left": 0.07930123012177592
+    },
+    "position_error_vector_m": {
+      "x": 0.03806722650402787,
+      "y": 0.019301230121775925
+    },
+    "position_error_magnitude_m": 0.04268080620047743,
+    "yaw_error_deg": -1.4095480214769116,
+    "diagnostic_tolerances": {
+      "position_m": 0.075,
+      "yaw_deg": 5.0
+    },
+    "position_check_passed": true,
+    "yaw_check_passed": true,
+    "overall_sanity_check_passed": true
+  },
+  "nominal_pose_geometry": [
+    {
+      "pose": "pose_01",
+      "type": "square_on",
+      "perpendicular_distance_m": 0.8,
+      "lateral_offset_m": 0.0,
+      "nominal_absolute_yaw_deg": 0.0
+    },
+    {
+      "pose": "pose_02",
+      "type": "square_on",
+      "perpendicular_distance_m": 1.2,
+      "lateral_offset_m": 0.0,
+      "nominal_absolute_yaw_deg": 0.0
+    },
+    {
+      "pose": "pose_03",
+      "type": "square_on",
+      "perpendicular_distance_m": 1.6,
+      "lateral_offset_m": 0.0,
+      "nominal_absolute_yaw_deg": 0.0
+    },
+    {
+      "pose": "pose_04",
+      "type": "left_offset_angled_right",
+      "perpendicular_distance_m": 0.8,
+      "lateral_offset_m": 0.5,
+      "slant_distance_m": 0.9433981132056605,
+      "nominal_absolute_yaw_deg": 32.005383208083494
+    },
+    {
+      "pose": "pose_05",
+      "type": "right_offset_angled_left",
+      "perpendicular_distance_m": 0.8,
+      "lateral_offset_m": -0.5,
+      "slant_distance_m": 0.9433981132056605,
+      "nominal_absolute_yaw_deg": 32.005383208083494
+    },
+    {
+      "pose": "pose_06",
+      "type": "left_offset_angled_right",
+      "perpendicular_distance_m": 1.2,
+      "lateral_offset_m": 0.5,
+      "slant_distance_m": 1.3,
+      "nominal_absolute_yaw_deg": 22.61986494804043
+    },
+    {
+      "pose": "pose_07",
+      "type": "right_offset_angled_left",
+      "perpendicular_distance_m": 1.2,
+      "lateral_offset_m": -0.5,
+      "slant_distance_m": 1.3,
+      "nominal_absolute_yaw_deg": 22.61986494804043
+    }
+  ],
+  "threshold_sensitivity": [
+    {
+      "distance_threshold_m": 0.2,
+      "iteration_count": 16,
+      "transform_matrix_3x3": [
+        [
+          0.9995522814042777,
+          0.02992050700612849,
+          -0.1493523094900704
+        ],
+        [
+          -0.02992050700612848,
+          0.9995522814042775,
+          -0.08473320701054737
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "transform_summary": {
+        "yaw_deg": -1.7145746623011602,
+        "translation_x_m": -0.1493523094900704,
+        "translation_y_m": -0.08473320701054737,
+        "translation_magnitude_m": 0.17171438122740346,
+        "camera_origin_in_lidar_x_m": 0.14675018116978678,
+        "camera_origin_in_lidar_y_m": 0.08916396720057267,
+        "camera_origin_in_lidar_magnitude_m": 0.17171438122740343
+      },
+      "difference_from_staged_result": {
+        "translation_difference_x_m": 0.0006208254419191872,
+        "translation_difference_y_m": -0.00909824510738251,
+        "translation_difference_magnitude_m": 0.00911940174920175,
+        "yaw_difference_deg": -0.3050266408242486
+      },
+      "overall_residuals": {
+        "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+        "acceptance_threshold_m": 0.1,
+        "orthogonal_point_to_line": {
+          "total_point_count": 276,
+          "accepted_point_count": 276,
+          "accepted_fraction": 1.0,
+          "all_points": {
+            "count": 276,
+            "mean_abs_m": 0.014886081995414104,
+            "rmse_m": 0.017492719788128996,
+            "median_m": 0.014009747480573072,
+            "p95_m": 0.029815029696832702,
+            "max_m": 0.05024893037694432
+          },
+          "accepted_points": {
+            "count": 276,
+            "mean_abs_m": 0.014886081995414104,
+            "rmse_m": 0.017492719788128996,
+            "median_m": 0.014009747480573072,
+            "p95_m": 0.029815029696832702,
+            "max_m": 0.05024893037694432
+          }
+        },
+        "sampled_segment_secondary": {
+          "total_point_count": 276,
+          "accepted_point_count": 267,
+          "accepted_fraction": 0.967391304347826,
+          "all_points": {
+            "count": 276,
+            "mean_abs_m": 0.029666761937650936,
+            "rmse_m": 0.041059693308837374,
+            "median_m": 0.01928273377015275,
+            "p95_m": 0.09341884105299061,
+            "max_m": 0.12500218245083805
+          },
+          "accepted_points": {
+            "count": 267,
+            "mean_abs_m": 0.026756708630203796,
+            "rmse_m": 0.03588643906030171,
+            "median_m": 0.018619139568891642,
+            "p95_m": 0.08434294629797963,
+            "max_m": 0.09933542385042204
+          }
+        }
+      }
+    },
+    {
+      "distance_threshold_m": 0.25,
+      "iteration_count": 16,
+      "transform_matrix_3x3": [
+        [
+          0.9995522814042777,
+          0.02992050700612849,
+          -0.1493523094900704
+        ],
+        [
+          -0.02992050700612848,
+          0.9995522814042775,
+          -0.08473320701054737
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "transform_summary": {
+        "yaw_deg": -1.7145746623011602,
+        "translation_x_m": -0.1493523094900704,
+        "translation_y_m": -0.08473320701054737,
+        "translation_magnitude_m": 0.17171438122740346,
+        "camera_origin_in_lidar_x_m": 0.14675018116978678,
+        "camera_origin_in_lidar_y_m": 0.08916396720057267,
+        "camera_origin_in_lidar_magnitude_m": 0.17171438122740343
+      },
+      "difference_from_staged_result": {
+        "translation_difference_x_m": 0.0006208254419191872,
+        "translation_difference_y_m": -0.00909824510738251,
+        "translation_difference_magnitude_m": 0.00911940174920175,
+        "yaw_difference_deg": -0.3050266408242486
+      },
+      "overall_residuals": {
+        "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+        "acceptance_threshold_m": 0.1,
+        "orthogonal_point_to_line": {
+          "total_point_count": 276,
+          "accepted_point_count": 276,
+          "accepted_fraction": 1.0,
+          "all_points": {
+            "count": 276,
+            "mean_abs_m": 0.014886081995414104,
+            "rmse_m": 0.017492719788128996,
+            "median_m": 0.014009747480573072,
+            "p95_m": 0.029815029696832702,
+            "max_m": 0.05024893037694432
+          },
+          "accepted_points": {
+            "count": 276,
+            "mean_abs_m": 0.014886081995414104,
+            "rmse_m": 0.017492719788128996,
+            "median_m": 0.014009747480573072,
+            "p95_m": 0.029815029696832702,
+            "max_m": 0.05024893037694432
+          }
+        },
+        "sampled_segment_secondary": {
+          "total_point_count": 276,
+          "accepted_point_count": 267,
+          "accepted_fraction": 0.967391304347826,
+          "all_points": {
+            "count": 276,
+            "mean_abs_m": 0.029666761937650936,
+            "rmse_m": 0.041059693308837374,
+            "median_m": 0.01928273377015275,
+            "p95_m": 0.09341884105299061,
+            "max_m": 0.12500218245083805
+          },
+          "accepted_points": {
+            "count": 267,
+            "mean_abs_m": 0.026756708630203796,
+            "rmse_m": 0.03588643906030171,
+            "median_m": 0.018619139568891642,
+            "p95_m": 0.08434294629797963,
+            "max_m": 0.09933542385042204
+          }
+        }
+      }
+    },
+    {
+      "distance_threshold_m": 0.3,
+      "iteration_count": 16,
+      "transform_matrix_3x3": [
+        [
+          0.9995522814042777,
+          0.02992050700612849,
+          -0.1493523094900704
+        ],
+        [
+          -0.02992050700612848,
+          0.9995522814042775,
+          -0.08473320701054737
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "transform_summary": {
+        "yaw_deg": -1.7145746623011602,
+        "translation_x_m": -0.1493523094900704,
+        "translation_y_m": -0.08473320701054737,
+        "translation_magnitude_m": 0.17171438122740346,
+        "camera_origin_in_lidar_x_m": 0.14675018116978678,
+        "camera_origin_in_lidar_y_m": 0.08916396720057267,
+        "camera_origin_in_lidar_magnitude_m": 0.17171438122740343
+      },
+      "difference_from_staged_result": {
+        "translation_difference_x_m": 0.0006208254419191872,
+        "translation_difference_y_m": -0.00909824510738251,
+        "translation_difference_magnitude_m": 0.00911940174920175,
+        "yaw_difference_deg": -0.3050266408242486
+      },
+      "overall_residuals": {
+        "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+        "acceptance_threshold_m": 0.1,
+        "orthogonal_point_to_line": {
+          "total_point_count": 276,
+          "accepted_point_count": 276,
+          "accepted_fraction": 1.0,
+          "all_points": {
+            "count": 276,
+            "mean_abs_m": 0.014886081995414104,
+            "rmse_m": 0.017492719788128996,
+            "median_m": 0.014009747480573072,
+            "p95_m": 0.029815029696832702,
+            "max_m": 0.05024893037694432
+          },
+          "accepted_points": {
+            "count": 276,
+            "mean_abs_m": 0.014886081995414104,
+            "rmse_m": 0.017492719788128996,
+            "median_m": 0.014009747480573072,
+            "p95_m": 0.029815029696832702,
+            "max_m": 0.05024893037694432
+          }
+        },
+        "sampled_segment_secondary": {
+          "total_point_count": 276,
+          "accepted_point_count": 267,
+          "accepted_fraction": 0.967391304347826,
+          "all_points": {
+            "count": 276,
+            "mean_abs_m": 0.029666761937650936,
+            "rmse_m": 0.041059693308837374,
+            "median_m": 0.01928273377015275,
+            "p95_m": 0.09341884105299061,
+            "max_m": 0.12500218245083805
+          },
+          "accepted_points": {
+            "count": 267,
+            "mean_abs_m": 0.026756708630203796,
+            "rmse_m": 0.03588643906030171,
+            "median_m": 0.018619139568891642,
+            "p95_m": 0.08434294629797963,
+            "max_m": 0.09933542385042204
+          }
+        }
+      }
+    },
+    {
+      "distance_threshold_m": 0.35,
+      "iteration_count": 16,
+      "transform_matrix_3x3": [
+        [
+          0.9995522814042777,
+          0.02992050700612849,
+          -0.1493523094900704
+        ],
+        [
+          -0.02992050700612848,
+          0.9995522814042775,
+          -0.08473320701054737
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "transform_summary": {
+        "yaw_deg": -1.7145746623011602,
+        "translation_x_m": -0.1493523094900704,
+        "translation_y_m": -0.08473320701054737,
+        "translation_magnitude_m": 0.17171438122740346,
+        "camera_origin_in_lidar_x_m": 0.14675018116978678,
+        "camera_origin_in_lidar_y_m": 0.08916396720057267,
+        "camera_origin_in_lidar_magnitude_m": 0.17171438122740343
+      },
+      "difference_from_staged_result": {
+        "translation_difference_x_m": 0.0006208254419191872,
+        "translation_difference_y_m": -0.00909824510738251,
+        "translation_difference_magnitude_m": 0.00911940174920175,
+        "yaw_difference_deg": -0.3050266408242486
+      },
+      "overall_residuals": {
+        "primary_metric": "orthogonal_distance_to_infinite_camera_line",
+        "acceptance_threshold_m": 0.1,
+        "orthogonal_point_to_line": {
+          "total_point_count": 276,
+          "accepted_point_count": 276,
+          "accepted_fraction": 1.0,
+          "all_points": {
+            "count": 276,
+            "mean_abs_m": 0.014886081995414104,
+            "rmse_m": 0.017492719788128996,
+            "median_m": 0.014009747480573072,
+            "p95_m": 0.029815029696832702,
+            "max_m": 0.05024893037694432
+          },
+          "accepted_points": {
+            "count": 276,
+            "mean_abs_m": 0.014886081995414104,
+            "rmse_m": 0.017492719788128996,
+            "median_m": 0.014009747480573072,
+            "p95_m": 0.029815029696832702,
+            "max_m": 0.05024893037694432
+          }
+        },
+        "sampled_segment_secondary": {
+          "total_point_count": 276,
+          "accepted_point_count": 267,
+          "accepted_fraction": 0.967391304347826,
+          "all_points": {
+            "count": 276,
+            "mean_abs_m": 0.029666761937650936,
+            "rmse_m": 0.041059693308837374,
+            "median_m": 0.01928273377015275,
+            "p95_m": 0.09341884105299061,
+            "max_m": 0.12500218245083805
+          },
+          "accepted_points": {
+            "count": 267,
+            "mean_abs_m": 0.026756708630203796,
+            "rmse_m": 0.03588643906030171,
+            "median_m": 0.018619139568891642,
+            "p95_m": 0.08434294629797963,
+            "max_m": 0.09933542385042204
+          }
+        }
+      }
+    }
+  ],
+  "notes": "ZED 2i HD720 rectified left image stream. Distortion coefficients are zero for the rectified SDK output. ICP nearest-neighbour searches are isolated per pose. The primary reported validation residual is the orthogonal distance from each transformed LiDAR point to the corresponding infinite camera-derived TLS line. Nearest sampled camera-segment distances are retained as a secondary diagnostic for endpoint and sampling effects. Manual rig measurements and nominal acquisition poses are diagnostic references rather than surveyed ground truth."
+}

@@ -1,0 +1,59 @@
+{
+  "created_utc": "2026-06-27T10:23:43.089733Z",
+  "script": "phase1/validate_zed.py",
+  "purpose": "ZED validation / static-pose frame capture",
+  "pose_id": "pose_02",
+  "resolution": "720p",
+  "depth_mode": "NEURAL",
+  "source": "live camera",
+  "camera_info": {
+    "serial_number": 32747601,
+    "model": "ZED 2i",
+    "resolution": "1280x720",
+    "fps_achieved": 0.0,
+    "depth_mode": "NEURAL",
+    "left_camera": {
+      "fx": 521.9912719726562,
+      "fy": 521.9912719726562,
+      "cx": 636.7160034179688,
+      "cy": 355.69366455078125,
+      "disto": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "right_camera": {
+      "fx": 521.9912719726562,
+      "fy": 521.9912719726562,
+      "cx": 636.7160034179688,
+      "cy": 355.69366455078125,
+      "disto": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "depth_min_m": 0.3,
+  "depth_max_m": 20.0,
+  "n_grab": 5
+}
