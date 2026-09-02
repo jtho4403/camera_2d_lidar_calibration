@@ -10,6 +10,14 @@ def precision_band_mm(distance_m: float):
     return None
 
 
+def accuracy_band_mm(distance_m: float):
+    """Return the datasheet accuracy (bias) band (mm) for a given distance, or None."""
+    for lo, hi, spec_mm in config.DATASHEET_ACCURACY_BANDS_MM:
+        if lo <= distance_m <= hi:
+            return spec_mm
+    return None
+
+
 def classify(measured_mm: float, spec_mm: float | None) -> str:
     """Objective banding: within spec (<0.9x), at spec (0.9-1.1x), worse (>1.1x).
 

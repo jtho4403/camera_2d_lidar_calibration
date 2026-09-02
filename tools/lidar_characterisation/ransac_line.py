@@ -36,14 +36,29 @@ def _fit_tls_line(points: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarra
     return centroid, direction, normal
 
 
-def fit_dominant_wall(points_xy: np.ndarray, rng: np.random.Generator | None = None) -> LineFit | None:
+def fit_dominant_wall(
+    points_xy: np.ndarray,
+    rng: np.random.Generator | None = None,
+    min_inliers: int | None = None,
+    min_spatial_extent_m: float | None = None,
+    min_angular_extent_deg: float | None = None,
+) -> LineFit | None:
     """Find the single dominant straight-line ("wall") segment in points_xy.
 
-    Returns None if no line meets the configured minimum-inlier /
-    minimum-extent thresholds.
+    Returns None if no line meets the minimum-inlier / minimum-extent
+    thresholds. Thresholds default to the `config` module constants but can
+    be overridden per-call (e.g. a longer-range capture where a narrower
+    angular subtense means fewer beams hit the target, without changing the
+    defaults used elsewhere).
     """
+    min_inliers = config.RANSAC_MIN_INLIERS if min_inliers is None else min_inliers
+    min_spatial_extent_m = (config.RANSAC_MIN_SPATIAL_EXTENT_M if min_spatial_extent_m is None
+                             else min_spatial_extent_m)
+    min_angular_extent_deg = (config.RANSAC_MIN_ANGULAR_EXTENT_DEG if min_angular_extent_deg is None
+                               else min_angular_extent_deg)
+
     n = len(points_xy)
-    if n < config.RANSAC_MIN_INLIERS:
+    if n < min_inliers:
         return None
     if rng is None:
         rng = np.random.default_rng(config.RANSAC_SEED)
@@ -79,7 +94,7 @@ def fit_dominant_wall(points_xy: np.ndarray, rng: np.random.Generator | None = N
     best_count = int(counts[best_iter])
     best_mask = inlier_masks[best_iter]
 
-    if best_count < config.RANSAC_MIN_INLIERS:
+    if best_count < min_inliers:
         return None
 
     # Refine: alternate TLS refit on current inliers / inlier reselection.
@@ -94,7 +109,7 @@ def fit_dominant_wall(points_xy: np.ndarray, rng: np.random.Generator | None = N
         mask = dists < config.RANSAC_DIST_THRESHOLD_M
 
     n_inliers = int(mask.sum())
-    if n_inliers < config.RANSAC_MIN_INLIERS:
+    if n_inliers < min_inliers:
         return None
 
     inlier_pts = points_xy[mask]
@@ -116,9 +131,9 @@ def fit_dominant_wall(points_xy: np.ndarray, rng: np.random.Generator | None = N
     )))
     angles_deg = circ_mean_deg + (((raw_angles_deg - circ_mean_deg + 180.0) % 360.0) - 180.0)
 
-    if spatial_extent < config.RANSAC_MIN_SPATIAL_EXTENT_M:
+    if spatial_extent < min_spatial_extent_m:
         return None
-    if angular_extent < config.RANSAC_MIN_ANGULAR_EXTENT_DEG:
+    if angular_extent < min_angular_extent_deg:
         return None
 
     distance_to_origin = float(abs(point @ normal_))
@@ -135,3 +150,49 @@ def fit_dominant_wall(points_xy: np.ndarray, rng: np.random.Generator | None = N
         along_line_positions=along - along.mean(),
         angles_deg=angles_deg,
     )
+
+
+def find_candidate_walls(
+    points_xy: np.ndarray,
+    rng: np.random.Generator | None = None,
+    max_candidates: int = 8,
+    min_inliers: int | None = None,
+    min_spatial_extent_m: float | None = None,
+    min_angular_extent_deg: float | None = None,
+) -> list[LineFit]:
+    """Find multiple straight-line ("wall") segments in points_xy, not just the
+    single dominant one.
+
+    Repeatedly calls `fit_dominant_wall` on the points not yet claimed by a
+    previously found line, removing each found line's inliers before the next
+    round, until no further line meets the thresholds (see `fit_dominant_wall`
+    for the override/default semantics) or `max_candidates` is reached. Each
+    returned LineFit's `inlier_mask` is re-expressed against the original
+    (full) `points_xy` array.
+    """
+    if rng is None:
+        rng = np.random.default_rng(config.RANSAC_SEED)
+    min_inliers_eff = config.RANSAC_MIN_INLIERS if min_inliers is None else min_inliers
+
+    remaining_idx = np.arange(len(points_xy))
+    candidates: list[LineFit] = []
+    for _ in range(max_candidates):
+        if len(remaining_idx) < min_inliers_eff:
+            break
+        fit = fit_dominant_wall(
+            points_xy[remaining_idx], rng=rng,
+            min_inliers=min_inliers,
+            min_spatial_extent_m=min_spatial_extent_m,
+            min_angular_extent_deg=min_angular_extent_deg,
+        )
+        if fit is None:
+            break
+        local_mask = fit.inlier_mask
+        global_idx = remaining_idx[local_mask]
+        full_mask = np.zeros(len(points_xy), dtype=bool)
+        full_mask[global_idx] = True
+        fit.inlier_mask = full_mask
+        candidates.append(fit)
+        remaining_idx = remaining_idx[~local_mask]
+
+    return candidates
