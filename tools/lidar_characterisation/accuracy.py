@@ -364,113 +364,6 @@ def analyse_pose(pose: str, true_distance_m: float):
     return records, inventory, summary
 
 
-def write_report(inventory_rows, pose_summary_rows, slope, intercept, out_path: Path):
-    lines = []
-    lines.append("# LiDAR (STL-19P) Range Accuracy & Extended Precision Characterisation\n")
-    lines.append("Headless, algorithmic. Target wall selected OBJECTIVELY BY KNOWN TRUE DISTANCE "
-                 "(not by assumed bearing): for every scan, multiple candidate wall segments are "
-                 "extracted (iterative RANSAC with inlier removal), and whichever candidate's "
-                 "perpendicular distance from the sensor origin falls within a tolerance gate of "
-                 "the pose's rangefinder-measured true distance is selected as the target end "
-                 "wall. Scans with no qualifying candidate are flagged and excluded.\n")
-    lines.append(f"Tolerance gate: +-max({config.ACCURACY_TOLERANCE_MIN_M*1000:.0f} mm, "
-                 f"{config.ACCURACY_TOLERANCE_FRAC*100:.0f}% of true distance). "
-                 f"Max candidates searched per scan: {config.ACCURACY_MAX_CANDIDATES}.\n")
-    lines.append(f"RANSAC minimum-inlier threshold used here: {config.ACCURACY_RANSAC_MIN_INLIERS} "
-                 f"(lower than the {config.RANSAC_MIN_INLIERS} used by the earlier <1m precision-only "
-                 "study, and applied ONLY in this script). Verified necessary and not silently "
-                 "adopted: at 4.0-5.5m true distance, direct inspection of the raw scans confirmed a "
-                 "genuine, clean, smoothly-varying planar target wall (spatial extent >1.2m, angular "
-                 "extent 13-19 deg) but with only ~21-28 inlier points under the shared 0.03m "
-                 "perpendicular-distance threshold -- below the original 30-point floor purely because "
-                 "the target subtends a narrower angle from the sensor at long range (fewer fixed-"
-                 "angular-resolution beams land on it), not because the detection is spurious. Poses "
-                 "with fewer accepted inliers per scan (mainly poses_08-11) have correspondingly "
-                 "noisier per-scan within_scan_sigma_mm estimates (smaller sample size) -- treat with "
-                 "that in mind.\n")
-
-    lines.append("## Step 0: Data inventory\n")
-    inv_cols = ["pose", "n_raw_scans", "mean_n_total_points", "mean_n_valid_points", "mean_dropout_fraction"]
-    lines.append(markdown_table(inventory_rows, inv_cols))
-    lines.append("\nPCD format matches the prior precision-only capture exactly (ASCII, `x y z` "
-                 "fields, dropped/no-return readings encoded as an exact (0,0,0) point) — no "
-                 "format deviation was observed, so no assumption had to be flagged.\n")
-
-    lines.append("## Step 1: Accuracy / bias vs true distance\n")
-    acc_cols = ["pose", "true_distance_m", "n_accepted_scans", "n_flagged_target_not_found",
-                "measured_distance_mean_m", "measured_distance_std_mm", "bias_mm",
-                "within_measurement_uncertainty_band", "accuracy_status_vs_datasheet",
-                "datasheet_accuracy_spec_mm"]
-    lines.append(markdown_table(pose_summary_rows, acc_cols))
-    lines.append(f"\nLinear fit of measured-mean vs true distance: slope={slope:.4f} "
-                 f"(1.0 = no scale error), intercept={intercept*1000:.1f} mm (0 = no constant "
-                 "offset). See `measured_vs_true.png`.\n")
-    lines.append(f"\nMeasurement-uncertainty caveat band: +-{config.ACCURACY_MEASUREMENT_UNCERTAINTY_MM:.0f} mm "
-                 "(rangefinder +-2 mm placement spec, plus wall-flatness/placement slop). Biases "
-                 "within this band are not distinguishable from measurement noise; only biases "
-                 "beyond it are reported as plausibly real. This is NOT a datasheet spec — it is "
-                 "this capture's own ground-truth uncertainty.\n")
-
-    lines.append("## Step 2: Extended precision vs distance\n")
-    prec_cols = ["pose", "true_distance_m", "within_scan_sigma_mm", "across_scan_sigma_mm",
-                 "datasheet_precision_spec_mm", "precision_status_vs_datasheet"]
-    lines.append(markdown_table(pose_summary_rows, prec_cols))
-    lines.append("\nSee `precision_vs_distance.png` for the full 0.5-5.5 m curve against the "
-                 "datasheet STD bands (reuses the same plot function as the earlier <1 m "
-                 "precision-only study).\n")
-
-    lines.append("## Step 3: Target-bearing consistency\n")
-    bear_cols = ["pose", "target_bearing_mean_deg", "target_bearing_std_deg", "n_accepted_scans",
-                 "n_ambiguous_scans"]
-    lines.append(markdown_table(pose_summary_rows, bear_cols))
-    valid_bearings = [r["target_bearing_mean_deg"] for r in pose_summary_rows if "target_bearing_mean_deg" in r]
-    if valid_bearings:
-        overall_mean, overall_std = circular_mean_std_deg(np.array(valid_bearings))
-        lines.append(f"\nAcross all poses with an accepted target wall: mean bearing "
-                     f"{overall_mean:.2f} deg, spread (STD of per-pose means) {overall_std:.2f} deg. "
-                     "This is the empirically observed native-frame bearing of the target wall — "
-                     "if tightly clustered, it both validates the by-distance selection method and "
-                     "resolves the sensor's native axis convention for this rig setup.\n")
-
-    ambiguous_rows = [r for r in pose_summary_rows if r.get("n_ambiguous_scans", 0) > 0]
-    if ambiguous_rows:
-        lines.append("\n### Data-quality flag: ambiguous target selection\n")
-        lines.append("For the pose(s) below, at least one scan had MORE THAN ONE candidate wall "
-                     "simultaneously within the distance-tolerance gate -- i.e. a second real "
-                     "surface in the room happened to sit at nearly the same distance from the "
-                     "sensor as the true target, at a different bearing. The closest-distance "
-                     "tie-break can select the wrong one on those scans. This is a genuine ambiguity "
-                     "of selecting-by-distance-alone, not a code defect. `n_ambiguous_scans` counts "
-                     "every scan where this COULD have gone wrong (>1 qualifying candidate); "
-                     "`n_bearing_outlier_scans` counts scans where the wrong candidate was ACTUALLY "
-                     "selected (bearing >10 deg from the pose's own median bearing) -- most ambiguous "
-                     "scans still pick correctly. The outlier scans are why `target_bearing_std_deg` "
-                     "is anomalously large for these pose(s) despite tight clustering (<0.3 deg) "
-                     "everywhere else, and they mildly contaminate that pose's accuracy aggregates. "
-                     "`bias_mm_excl_bearing_outliers` is the same bias computed with those scans "
-                     "excluded, reported alongside (not in place of) the primary `bias_mm` -- "
-                     "not silently corrected. See `per_scan_details.csv` "
-                     "(`ambiguous_selection`/`bearing_outlier` columns) for the exact scans.\n")
-        amb_cols = ["pose", "n_ambiguous_scans", "n_bearing_outlier_scans", "n_accepted_scans",
-                    "target_bearing_std_deg", "bias_mm", "bias_mm_excl_bearing_outliers"]
-        lines.append(markdown_table(ambiguous_rows, amb_cols))
-
-    lines.append("## Notes\n")
-    lines.append("- Scope: this step assesses range ACCURACY (bias vs an independently measured "
-                 "true distance) in addition to precision, now that a rangefinder-measured true "
-                 "distance is available per pose. The earlier capture "
-                 "(`results/lidar_characterisation/report.md`) covered precision/planarity only.\n")
-    lines.append("- `bias_mm` = measured_distance_mean_m - true_distance_m, in mm (signed).\n")
-    lines.append("- A pose's target wall is excluded scan-by-scan, not pose-by-pose: "
-                 "`n_flagged_target_not_found` counts individual scans where no RANSAC candidate "
-                 "fell within the tolerance gate; aggregate stats use only accepted scans.\n")
-    lines.append("- `within_scan_sigma_mm`/`across_scan_sigma_mm` follow the same definitions as "
-                 "the earlier precision-only report (mean inlier-residual STD within a scan vs "
-                 "STD of the fitted distance across repeated scans).\n")
-
-    out_path.write_text("\n".join(lines))
-
-
 def main():
     RESULTS_ROOT.mkdir(parents=True, exist_ok=True)
     PLOTS_ROOT.mkdir(parents=True, exist_ok=True)
@@ -501,7 +394,6 @@ def main():
         slope, intercept = make_measured_vs_true_plot(valid_rows, RESULTS_ROOT / "measured_vs_true.png")
         make_precision_vs_distance_plot(valid_rows, RESULTS_ROOT / "precision_vs_distance.png")
 
-    write_report(inventory_rows, pose_summary_rows, slope, intercept, RESULTS_ROOT / "report.md")
 
     print("Wrote:")
     for p in sorted(RESULTS_ROOT.rglob("*")):

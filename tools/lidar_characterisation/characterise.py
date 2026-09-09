@@ -276,71 +276,6 @@ def markdown_table(rows, columns, floatfmt=".3f") -> str:
     return "\n".join([header, sep] + body_lines)
 
 
-def write_report(pose_summary_rows, out_path: Path):
-    lines = []
-    lines.append("# LiDAR (STL-19P) Range Precision & Planarity Characterisation\n")
-    lines.append("Headless, algorithmic RANSAC wall-segmentation of raw 2D LiDAR scans. "
-                 "No GUI, no board-specific logic — the dominant straight planar surface "
-                 "(largest RANSAC inlier set meeting the thresholds below) in each scan is "
-                 "treated as \"the wall\".\n")
-    lines.append("**Scope**: range PRECISION (noise) and PLANARITY only. "
-                 "Range ACCURACY (bias vs. true distance) is NOT assessed — no independently "
-                 "measured true distances were available for this capture. Deferred to a later "
-                 "capture with a laser distance measurer.\n")
-
-    lines.append("## Config constants used\n")
-    lines.append(f"- RANSAC inlier distance threshold: {config.RANSAC_DIST_THRESHOLD_M*1000:.0f} mm")
-    lines.append(f"- RANSAC minimum inliers: {config.RANSAC_MIN_INLIERS}")
-    lines.append(f"- RANSAC minimum spatial extent: {config.RANSAC_MIN_SPATIAL_EXTENT_M} m")
-    lines.append(f"- RANSAC minimum angular extent: {config.RANSAC_MIN_ANGULAR_EXTENT_DEG} deg")
-    lines.append(f"- RANSAC iterations / refine rounds: {config.RANSAC_N_ITERS} / {config.RANSAC_REFINE_ROUNDS}")
-    lines.append(f"- Invalid-point tolerance (dropped (0,0) returns): {config.INVALID_POINT_TOL_M} m")
-    lines.append(f"- Datasheet precision bands (mm): {config.DATASHEET_PRECISION_BANDS_MM}\n")
-
-    lines.append("## Per-pose results\n")
-    cols = ["session", "pose", "n_raw_scans", "n_accepted_scans", "mean_distance_m",
-            "within_scan_sigma_mm", "across_scan_sigma_mm", "datasheet_precision_spec_mm",
-            "within_scan_status", "across_scan_status"]
-    lines.append(markdown_table(pose_summary_rows, cols))
-    lines.append("")
-
-    lines.append("\n## Planarity (systematic structure) per pose\n")
-    cols2 = ["session", "pose", "planarity_r2_linear", "planarity_r2_quad", "planarity_r2_cubic",
-             "planarity_max_dev_mm_vs_angle", "planarity_max_dev_mm_vs_position"]
-    lines.append(markdown_table(pose_summary_rows, cols2))
-    lines.append("\nR^2 values are variance-explained of a degree-d polynomial fit to "
-                 "(residual vs angle) / (residual vs along-wall position) relative to a flat "
-                 "(mean-only) baseline, aggregated over all accepted scans per pose. Higher R^2 "
-                 "indicates more systematic (non-random) structure in the residuals rather than "
-                 "pure noise scatter.\n")
-
-    lines.append("## Notes\n")
-    lines.append("- `within_scan_sigma_mm`: mean, over all accepted scans in the pose, of the "
-                 "STD of perpendicular residuals of inlier points about that scan's fitted wall "
-                 "line (spatial noise across beams within one sweep).\n")
-    lines.append("- `across_scan_sigma_mm`: STD, across accepted scans of the same static pose, "
-                 "of each scan's fitted wall distance (temporal repeatability of the aggregate "
-                 "distance estimate). Because this is a STD of an average over many inliers per "
-                 "scan, it is expected to be smaller than single-beam noise and is not directly "
-                 "the same quantity as `within_scan_sigma_mm`.\n")
-    lines.append("- Status classification: within spec if measured < 0.9x datasheet value, "
-                 "\"at spec\" if within 0.9x-1.1x, \"worse than spec\" if > 1.1x.\n")
-    lines.append("- Scans that failed the RANSAC min-inlier/min-extent thresholds were excluded "
-                 "and are counted in `n_raw_scans - n_accepted_scans`; see `per_scan_details.csv` "
-                 "for the full per-scan breakdown.\n")
-    lines.append("- CAVEAT on `planarity_max_dev_mm_vs_position`: for several poses this value is "
-                 "driven by a small number of sparse points at the extreme ends of the along-wall "
-                 "domain (visible as thin vertical outlier stripes in the `*_planarity.png` plots), "
-                 "which are plausibly RANSAC inliers picked up near a room corner rather than the "
-                 "main wall, combined with degree-3 polynomial extrapolation past the dense core. "
-                 "This inflates the reported max deviation beyond what the dense central part of the "
-                 "wall actually shows. Treat `planarity_r2_*` and the vs-angle columns, together with "
-                 "visual inspection of the diagnostic plots, as more reliable planarity indicators "
-                 "than this column in isolation. Not silently corrected — flagged here per instruction.\n")
-
-    out_path.write_text("\n".join(lines))
-
-
 def main():
     RESULTS_ROOT.mkdir(parents=True, exist_ok=True)
     PLOTS_ROOT.mkdir(parents=True, exist_ok=True)
@@ -358,8 +293,6 @@ def main():
     valid_summary = [r for r in all_pose_summary if "mean_distance_m" in r]
     if valid_summary:
         make_precision_vs_distance_plot(valid_summary, RESULTS_ROOT / "precision_vs_distance.png")
-
-    write_report(all_pose_summary, RESULTS_ROOT / "report.md")
 
     print("Wrote:")
     for p in sorted(RESULTS_ROOT.rglob("*")):
