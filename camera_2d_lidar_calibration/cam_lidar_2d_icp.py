@@ -1483,6 +1483,11 @@ def main():
   camera_points = []
   laser_points = []
 
+  # Per-pose solvePnP rvec/tvec, retained (in addition to the loop-local use
+  # above) only for the correspondence dump below -- PLAN.md Sec 4.2.
+  pose_rvecs = []
+  pose_tvecs = []
+
   # Now knowing that list 'images' and 'lasers' are of the same length, loop through them at the same time
   # to extract the corresponding 2D line points for alignment
   for i, (this_image, this_laser) in enumerate(zip(images, lasers)):
@@ -1514,6 +1519,8 @@ def main():
       corners2 = cv2.cornerSubPix(gray, corners, (3,3), (-1,-1), criteria)
       # Find the rotation and translation vectors (pose) between the board and the camera.
       ret_pnp, rvecs, tvecs = cv2.solvePnP(checkerboard_points, corners2, new_camera_k, new_camera_dist)
+      pose_rvecs.append(rvecs.copy())
+      pose_tvecs.append(tvecs.copy())
 
       projected, _ = cv2.projectPoints(checkerboard_points, rvecs, tvecs, new_camera_k, new_camera_dist)
       err = np.linalg.norm(projected.reshape(-1, 2) - corners2.reshape(-1, 2), axis=1)
@@ -1552,6 +1559,27 @@ def main():
   # Concatenate the list of arrays into long arrays
   all_lidar_points = np.vstack(laser_points)
   all_camera_points = np.vstack(camera_points)
+
+  # ------------------------------------------------------------------
+  # Additive correspondence dump (PLAN.md Sec 4.2). Per pose: the selected
+  # LiDAR points (Nx2), the checkerboard-derived wall line points (Mx2),
+  # the solvePnP rvec/tvec, and the pose id. Purely additive: no existing
+  # output is altered and nothing above this point (or below, besides the
+  # np.savez call itself) is changed by its presence. Ragged per-pose point
+  # counts are stored as indexed keys rather than a single object-dtype
+  # array, so the file stays a plain, portable .npz.
+  # ------------------------------------------------------------------
+  correspondence_payload = {
+      "pose_count": np.array(len(laser_points)),
+  }
+  for pose_index in range(len(laser_points)):
+    correspondence_payload[f"pose_{pose_index:02d}_lidar_points"] = laser_points[pose_index]
+    correspondence_payload[f"pose_{pose_index:02d}_camera_line_points"] = camera_points[pose_index]
+    correspondence_payload[f"pose_{pose_index:02d}_rvec"] = pose_rvecs[pose_index]
+    correspondence_payload[f"pose_{pose_index:02d}_tvec"] = pose_tvecs[pose_index]
+
+  np.savez("calibration_correspondences.npz", **correspondence_payload)
+  print("Saved calibration_correspondences.npz")
 
   # Introspection - are the two sets of points, camera_points and laser_points, looking reasonable with each other?
   print("Saving pre-alignment diagnostic plot...")
