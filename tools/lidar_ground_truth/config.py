@@ -12,15 +12,12 @@ RESULTS_ROOT = REPO_ROOT / "results" / "lidar_ground_truth"
 CONFIG_ROOT = REPO_ROOT / "config"
 
 # --- Invalid-point filtering (scan_io.py) ---
-# Retargeted from tools/lidar_characterisation/pcd_io.py (LDROBOT STL-19P
-# convention: exact (0, 0, 0) marks a dropped return) to the RPLIDAR S3.
-# The S3's own no-return encoding has NOT been confirmed against a real
-# captured PCD -- no S3 data exists in this repo yet at Phase 0/1 time (see
-# README.md "Open questions"). scan_io.load_valid_xy therefore checks every
-# convention a ROS LaserScan -> PointCloud path commonly produces (exact
-# zero, NaN/Inf, out of datasheet range), so it is safe against whichever
-# one the real S3 driver turns out to use. Reconfirm empirically in Phase 3
-# against a real captured S3 PCD before trusting silently-passing filtering.
+# RPLIDAR S3 PCDs extracted from /scan (data_2026-09-23) contain no exact
+# (0, 0) points and no NaN/Inf: no-return bearings are simply absent, so the
+# per-scan point count varies (2822-3068 per revolution). scan_io.load_valid_xy
+# still checks every convention a ROS LaserScan -> PointCloud path commonly
+# produces (exact zero, NaN/Inf, out of datasheet range), so a different
+# extraction path cannot silently pass invalid returns through.
 INVALID_POINT_TOL_M = 1e-9
 
 # RPLIDAR S3 (model S3M1-R2) datasheet range: 0.05-40 m at 70% reflectivity
@@ -44,11 +41,7 @@ RANGE_DISCONTINUITY_NEIGHBOUR_COUNT = 2
 # --- Rig parameters ---
 DEFAULT_RIG_PATH = CONFIG_ROOT / "rig_template.json"
 
-# --- Existing calibration artifacts (repo root, PLAN.md Sec 4.1) ---
-DEFAULT_TRANSFORM_PATH = REPO_ROOT / "lidar_to_camera_2d.npy"
-DEFAULT_CALIBRATION_RESULT_PATH = REPO_ROOT / "calibration_result.json"
-
-# Image resolution asserted by cam_lidar_2d_icp.py::main() for every
-# calibration image; used as a fallback image size when no per-pose
-# metadata_pose_NN.json is available (e.g. examples/).
-FALLBACK_IMAGE_WH = (1280, 720)
+# Calibration artifacts (lidar_to_camera_2d.npy, calibration_result.json)
+# and rectified intrinsics (session_manifest.json) are per-session inputs
+# passed on the command line; there are deliberately no defaults, so a run
+# can never pick up another session's calibration by accident.

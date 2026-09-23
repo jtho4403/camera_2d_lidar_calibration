@@ -2,7 +2,18 @@
 
 All thresholds live here (not buried in analysis code) so they are easy to
 audit and are also dumped into the output report.
+
+HISTORICAL: every value below describes the OLD rig's LDROBOT STL-19P and its
+sessions, which now live in data/_archive/. Inputs are read from there and
+outputs are written to results/_archive/ so this study can never be mistaken
+for, or mixed into, RPLIDAR S3 results. Retargeting to the S3 (PLAN.md
+Phase 5) needs new S3 accuracy captures and new datasheet bands.
 """
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_ROOT = REPO_ROOT / "data" / "_archive"
+RESULTS_ROOT = REPO_ROOT / "results" / "_archive" / "lidar_characterisation"
 
 # --- Invalid-point filtering ---
 # The STL-19P raw PCDs encode a dropped/no-return reading as an exact

@@ -37,8 +37,8 @@ from characterise import (
     make_precision_vs_distance_plot,
 )
 
-DATA_DIR = REPO_ROOT / "data" / config.ACCURACY_SESSION / "extracted_pcd"
-RESULTS_ROOT = REPO_ROOT / "results" / "lidar_characterisation" / "accuracy"
+DATA_DIR = config.DATA_ROOT / config.ACCURACY_SESSION / "extracted_pcd"
+RESULTS_ROOT = config.RESULTS_ROOT / "accuracy"
 PLOTS_ROOT = RESULTS_ROOT / "plots"
 
 CANDIDATE_COLORS = ["tab:blue", "tab:green", "tab:orange", "tab:purple",

@@ -16,7 +16,7 @@ import numpy as np
 import config
 
 
-def load_transform(path: str | Path = config.DEFAULT_TRANSFORM_PATH) -> np.ndarray:
+def load_transform(path: str | Path) -> np.ndarray:
     """Load the 3x3 SE(2) transform T2: LiDAR frame L -> camera frame R
     (lidar_to_camera_2d.npy). [x_R, y_R]^T = R2 [x_L, y_L]^T + t2.
     """
@@ -26,9 +26,7 @@ def load_transform(path: str | Path = config.DEFAULT_TRANSFORM_PATH) -> np.ndarr
     return T2
 
 
-def load_calibration_result(
-    path: str | Path = config.DEFAULT_CALIBRATION_RESULT_PATH,
-) -> dict:
+def load_calibration_result(path: str | Path) -> dict:
     """Load calibration_result.json (transform, residuals, sanity checks)."""
     with open(path) as f:
         return json.load(f)
@@ -41,28 +39,26 @@ class RectifiedIntrinsics:
     source: str                  # provenance string, for the export summary JSON
 
 
-def load_intrinsics_from_metadata(metadata_path: str | Path) -> RectifiedIntrinsics:
-    """Load the ZED SDK's per-capture rectified LEFT-camera intrinsics.
+def load_intrinsics_from_manifest(manifest_path: str | Path) -> RectifiedIntrinsics:
+    """Load the ZED SDK rectified LEFT-camera intrinsics from a capture
+    session's session_manifest.json (calibration.rectified.left).
 
     PLAN.md Sec 4.3: the canonical K is the ZED SDK rectified left-camera
-    intrinsics recorded per-capture in metadata_pose_NN.json, not the
-    hardcoded camera_k constant in cam_lidar_2d_icp.py (that constant is
-    retained there only as a validation reference, unmodified). Every
-    metadata_pose_NN.json checked in this repo (data_2026-06-28) has
-    left_camera.disto entirely zero, i.e. images are already rectified;
-    distortion is treated as exactly zero here and non-zero disto is a hard
-    error rather than something silently ignored.
+    intrinsics, recorded once per capture session. Non-zero rectified
+    distortion means the frames are not rectified, which is a hard error
+    rather than something silently ignored.
     """
-    metadata_path = Path(metadata_path)
-    with open(metadata_path) as f:
-        meta = json.load(f)
+    manifest_path = Path(manifest_path)
+    with open(manifest_path) as f:
+        manifest = json.load(f)
 
-    left = meta["camera_info"]["left_camera"]
-    if any(float(d) != 0.0 for d in left.get("disto", [])):
+    left = manifest["calibration"]["rectified"]["left"]
+    if any(float(d) != 0.0 for d in left["disto"]):
         raise ValueError(
-            f"{metadata_path}: left_camera.disto is non-zero. This pipeline "
-            "assumes rectified (zero-distortion) images (PLAN.md Sec 6.2) -- "
-            "do not project through this K without resolving that first."
+            f"{manifest_path}: calibration.rectified.left.disto is non-zero. "
+            "This pipeline assumes rectified (zero-distortion) images "
+            "(PLAN.md Sec 6.2) -- do not project through this K without "
+            "resolving that first."
         )
 
     K = np.array([
@@ -70,32 +66,24 @@ def load_intrinsics_from_metadata(metadata_path: str | Path) -> RectifiedIntrins
         [0.0, left["fy"], left["cy"]],
         [0.0, 0.0, 1.0],
     ], dtype=np.float64)
+    image_wh = tuple(int(v) for v in left["image_size"])
 
-    w_str, h_str = meta["camera_info"]["resolution"].split("x")
-    image_wh = (int(w_str), int(h_str))
-
-    return RectifiedIntrinsics(K=K, image_wh=image_wh, source=str(metadata_path))
+    return RectifiedIntrinsics(K=K, image_wh=image_wh, source=str(manifest_path))
 
 
-def load_intrinsics_from_calibration_result(
-    calibration_result_path: str | Path = config.DEFAULT_CALIBRATION_RESULT_PATH,
-) -> RectifiedIntrinsics:
-    """Fallback K source: the hardcoded intrinsics recorded in
-    calibration_result.json, for data with no per-pose metadata_pose_NN.json
-    (e.g. examples/). See load_intrinsics_from_metadata's docstring for why
-    per-pose metadata is preferred when available -- the two sources differ
-    by well under a pixel in fx/fy/cx/cy for the checked data_2026-06-28
-    session, so this fallback is not a meaningful source of error, but it is
-    not the canonical source either.
+def check_intrinsics_match_calibration(
+    intrinsics: RectifiedIntrinsics,
+    calibration_result: dict,
+    tolerance_px: float = 1e-6,
+) -> None:
+    """Refuse to project with a K that differs from the one the SE(2)
+    calibration was solved with (e.g. a manifest from another session).
     """
-    result = load_calibration_result(calibration_result_path)
-    K = np.array(result["camera_intrinsics"], dtype=np.float64)
-    dist = np.array(result["camera_distortion"], dtype=np.float64)
-    if np.any(dist != 0.0):
+    calibration_K = np.array(calibration_result["camera_intrinsics"], dtype=np.float64)
+    if not np.allclose(calibration_K, intrinsics.K, atol=tolerance_px):
         raise ValueError(
-            f"{calibration_result_path}: camera_distortion is non-zero. "
-            "This pipeline assumes rectified (zero-distortion) images."
+            f"K from {intrinsics.source} does not match the K recorded in the "
+            "calibration result (camera_intrinsics_source="
+            f"{calibration_result.get('camera_intrinsics_source')!r}). Use the "
+            "calibration and the images from the same capture session."
         )
-    return RectifiedIntrinsics(
-        K=K, image_wh=config.FALLBACK_IMAGE_WH, source=str(calibration_result_path)
-    )

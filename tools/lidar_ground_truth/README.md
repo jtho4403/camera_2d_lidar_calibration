@@ -5,8 +5,10 @@ repository root for the full specification; this README covers frame
 conventions, the projection derivation, and how to run what exists so far
 (Phase 0/1: rig parameters + projection core + overlay diagnostic).
 
-Headless, standalone consumer of the existing calibration artifacts
-(`lidar_to_camera_2d.npy`, `calibration_result.json`), following the
+Headless, standalone consumer of a session's calibration artifacts
+(`results/calibration/<session>/lidar_to_camera_2d.npy`,
+`calibration_result.json`) and its `session_manifest.json` (rectified `K`),
+all passed explicitly on the command line, following the
 precedent of `tools/lidar_characterisation/`. Not part of the interactive
 GUI flow. Run every script from the **repository root** with this
 directory's modules resolved via Python's automatic script-directory
@@ -56,54 +58,50 @@ depth or column computation.**
 | `config.py` | paths, thresholds, constants |
 | `rig.py` | load/validate `config/rig_<id>.json`; row-geometry sanity check CLI (PLAN.md Sec 1.3) |
 | `scan_io.py` | `.pcd` reading, invalid-return filtering, image/laser folder pairing |
-| `calibration_io.py` | load `lidar_to_camera_2d.npy`, `calibration_result.json`, rectified `K` |
+| `calibration_io.py` | load `lidar_to_camera_2d.npy`, `calibration_result.json`, rectified `K` from `session_manifest.json` (refuses a `K` that differs from the calibration's) |
 | `projection.py` | the `project_scan` core above |
 | `filters.py` | model-independent occlusion/parallax rejection (incidence-angle filter deferred to Phase 5) |
 | `overlay_diagnostic.py` | Phase 1 verification-gate CLI (PLAN.md Sec 5.5) |
 
 ## Rig parameters (PLAN.md Sec 3)
 
-`config/rig_template.json` is a **placeholder** -- every metrology value in
-it (delta_z, pitch, roll, the delta_z provenance chain) is illustrative, not
-measured. `rig.load_rig(path, allow_placeholder=False)` (the default)
-refuses to load it and raises `RuntimeError`; every diagnostic tool that
-must run before real metrology exists (this package's Phase 0/1 tools) opts
-in with `allow_placeholder=True` and must call `rig.warn_if_placeholder`
-immediately after, which prints a loud banner. Do not trust `v`/row output
-from any run against the template file.
+`config/rig_template.json` is a **placeholder** for the ROSbot XL + ZED 2i +
+RPLIDAR S3 rig: no metrology has been recorded yet (delta_z, pitch, roll,
+the delta_z provenance chain and board_standoff are zeroed).
+`rig.load_rig(path, allow_placeholder=False)` (the default) refuses to load
+it and raises `RuntimeError`; tools that must run before real metrology
+exists opt in with `allow_placeholder=True` and must call
+`rig.warn_if_placeholder` immediately after. Schema validation always runs,
+and requires `delta_z_tolerance_m > 0`. Do not trust `v`/row output from any
+run against the template file.
 
 ## Running
 
 ```bash
 # Phase 0: schema-validate the rig file, demonstrate the strict placeholder
-# guard, and print the Sec 1.3 row-geometry table using a real metadata K.
+# guard, and print the Sec 1.3 row-geometry table using the session's K.
 python tools/lidar_ground_truth/rig.py \
-    --metadata data/data_2026-06-28/additional_image_data/metadata_pose_01.json
+    --camera-manifest data/<session>/captures/session_manifest.json
 
-# Phase 1: project an existing session's curated LiDAR scans into their
-# paired calibration images and save overlay diagnostics.
+# Phase 1: project a session's staged LiDAR scans into their paired
+# calibration images and save overlay diagnostics.
 python tools/lidar_ground_truth/overlay_diagnostic.py \
-    --image-dir data/data_2026-06-28/images \
-    --laser-dir data/data_2026-06-28/lasers \
-    --metadata-dir data/data_2026-06-28/additional_image_data \
-    --out-dir results/lidar_ground_truth/data_2026-06-28
+    --image-dir data/<session>/images \
+    --laser-dir data/<session>/lasers \
+    --camera-manifest data/<session>/captures/session_manifest.json \
+    --transform results/calibration/<session>/lidar_to_camera_2d.npy \
+    --calibration-result results/calibration/<session>/calibration_result.json \
+    --out-dir results/lidar_ground_truth/<session>
 ```
 
-## Open questions / not yet verified
+## Sensor conventions confirmed on real S3 data (data_2026-09-23)
 
-- **RPLIDAR S3 invalid-return convention.** `scan_io.load_valid_xy` checks
-  every convention a common ROS `LaserScan -> PointCloud` path could
-  produce (exact zero, NaN/Inf, out of `[0.05, 40]` m datasheet range), but
-  none of this repo's existing `.pcd` data was captured on an S3 -- it is
-  from the STL-19P via the old rig. Reconfirm against a real captured S3
-  PCD in Phase 3.
-- **RPLIDAR S3 LaserScan handedness.** PLAN.md Sec 6.2 flags that the S3
-  datasheet specifies a left-handed, clockwise-increasing-angle frame,
-  while ROS REP-103 is right-handed with y left. The existing `.pcd` data
-  (STL-19P) is consistent with frame `L`'s right-handed x-forward/y-left
-  convention -- the existing SE(2) calibration solved a physically sensible
-  transform from it, and this package's own overlay diagnostic confirms the
-  same data projects onto the checkerboard at the predicted row. Neither
-  fact says anything about the S3's own driver convention; that must be
-  verified empirically (a known-bearing object test) once real S3 capture
-  exists (Phase 3), per PLAN.md's explicit instruction not to guess this.
+- **Invalid returns.** The extracted S3 PCDs contain no exact `(0, 0)`
+  points and no NaN/Inf; no-return bearings are omitted, so the point count
+  per revolution varies. Returns lie on a fixed 0.1108 deg bearing grid.
+- **LaserScan handedness and mounting.** Frame `L` is right-handed
+  (x forward, y left, per REP-103) but its +x axis points ~180 deg away from
+  the camera's optical axis on this rig: the solved SE(2) yaw is 178.87 deg.
+  A mirrored (left-handed) frame could not be fitted by an SE(2) transform
+  across the session's +-70 deg of board yaw; the fitted per-pose line
+  angles are 0.05-2.7 deg.

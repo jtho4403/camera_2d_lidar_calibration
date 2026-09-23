@@ -1,11 +1,10 @@
 """PCD reading and invalid-return filtering for the LiDAR ground-truth pipeline.
 
 Reuses the reader / invalid-return-filter pattern from
-tools/lidar_characterisation/pcd_io.py, retargeted from the LDROBOT STL-19P
-to the RPLIDAR S3's invalid-return convention -- see config.py's
-INVALID_POINT_TOL_M / RANGE_MIN_M / RANGE_MAX_M comments. The exact S3
-encoding has not been confirmed against real S3 data yet; this filter checks
-every convention a common ROS conversion path could produce.
+tools/lidar_characterisation/pcd_io.py, for the RPLIDAR S3 -- see config.py's
+INVALID_POINT_TOL_M / RANGE_MIN_M / RANGE_MAX_M comments. The extracted S3
+PCDs simply omit no-return bearings; this filter still checks every
+convention a common ROS conversion path could produce.
 
 Every point handled here is in frame L (PLAN.md Sec 1.1): right-handed,
 x forward, y left, z up, origin at the scanner rotation centre, z == 0 for
@@ -47,8 +46,8 @@ def load_valid_xy(path: str | Path) -> tuple[np.ndarray, int, int]:
     A return is invalid if it is non-finite (NaN/Inf), or its range
     hypot(x, y) falls outside [config.RANGE_MIN_M, config.RANGE_MAX_M] -- the
     RPLIDAR S3 datasheet range band. Since RANGE_MIN_M (0.05 m) is well above
-    config.INVALID_POINT_TOL_M, this range check also subsumes the exact
-    (0, 0) dropped-return convention carried over from the STL-19P code path.
+    config.INVALID_POINT_TOL_M, this range check also subsumes an exact
+    (0, 0) dropped-return convention, should an extraction path produce one.
 
     Point order is preserved (a prefix/subset of the on-disk order), which
     matters because filters.py's occlusion/parallax rejection needs the

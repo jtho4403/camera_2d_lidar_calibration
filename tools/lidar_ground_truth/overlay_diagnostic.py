@@ -13,16 +13,17 @@ identically (same folder-pairing convention) but never through that file.
 
 Run from the repository root:
     python tools/lidar_ground_truth/overlay_diagnostic.py \\
-        --image-dir data/data_2026-06-28/images \\
-        --laser-dir data/data_2026-06-28/lasers \\
-        --metadata-dir data/data_2026-06-28/additional_image_data \\
-        --out-dir results/lidar_ground_truth/data_2026-06-28
+        --image-dir data/<session>/images \\
+        --laser-dir data/<session>/lasers \\
+        --camera-manifest data/<session>/captures/session_manifest.json \\
+        --transform results/calibration/<session>/lidar_to_camera_2d.npy \\
+        --calibration-result results/calibration/<session>/calibration_result.json \\
+        --out-dir results/lidar_ground_truth/<session>
 """
 from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 
 import cv2
@@ -40,26 +41,8 @@ import scan_io
 
 
 def pose_id_from_filename(path: Path) -> str:
-    match = re.search(r"pose_(\d+)", path.stem)
-    if not match:
-        raise ValueError(f"Cannot find a pose_NN id in filename: {path.name}")
-    return f"pose_{int(match.group(1)):02d}"
-
-
-def resolve_intrinsics(
-    image_path: Path,
-    metadata_dir: str | None,
-    calibration_result_path: str,
-) -> calibration_io.RectifiedIntrinsics:
-    """PLAN.md Sec 4.3: prefer the per-pose ZED SDK metadata K; fall back to
-    the calibration_result.json K when no metadata_pose_NN.json exists.
-    """
-    if metadata_dir is not None:
-        pose_id = pose_id_from_filename(image_path)
-        metadata_path = Path(metadata_dir) / f"metadata_{pose_id}.json"
-        if metadata_path.is_file():
-            return calibration_io.load_intrinsics_from_metadata(metadata_path)
-    return calibration_io.load_intrinsics_from_calibration_result(calibration_result_path)
+    """Capture ID of a staged pair: the laser file stem (e.g. A09.pcd -> A09)."""
+    return path.stem
 
 
 def make_overlay_plot(
@@ -96,17 +79,19 @@ def process_pose(
     laser_path: Path,
     T2: np.ndarray,
     rig_cfg: rig_module.RigConfig,
-    metadata_dir: str | None,
-    calibration_result_path: str,
+    intrinsics: calibration_io.RectifiedIntrinsics,
     out_dir: Path,
 ) -> dict:
-    pose_id = pose_id_from_filename(image_path)
+    pose_id = pose_id_from_filename(laser_path)
     image_bgr = cv2.imread(str(image_path))
     if image_bgr is None:
         raise ValueError(f"Could not read image: {image_path}")
     h, w = image_bgr.shape[:2]
-
-    intrinsics = resolve_intrinsics(image_path, metadata_dir, calibration_result_path)
+    if (w, h) != intrinsics.image_wh:
+        raise ValueError(
+            f"{image_path} is {w}x{h} but {intrinsics.source} is for "
+            f"{intrinsics.image_wh[0]}x{intrinsics.image_wh[1]} images."
+        )
 
     xy_valid, n_total, n_valid = scan_io.load_valid_xy(laser_path)
     result = projection.project_scan(
@@ -151,21 +136,23 @@ def main() -> None:
     parser.add_argument("--image-dir", required=True)
     parser.add_argument("--laser-dir", required=True)
     parser.add_argument(
-        "--metadata-dir", default=None,
-        help=(
-            "additional_image_data/ dir with metadata_pose_NN.json (per-pose "
-            "K, PLAN.md Sec 4.3); omit to always use --calibration-result's K"
-        ),
+        "--camera-manifest", required=True,
+        help="session_manifest.json of the capture session (rectified K, PLAN.md Sec 4.3)",
     )
-    parser.add_argument("--transform", default=str(config.DEFAULT_TRANSFORM_PATH))
+    parser.add_argument("--transform", required=True, help="lidar_to_camera_2d.npy")
     parser.add_argument(
-        "--calibration-result", default=str(config.DEFAULT_CALIBRATION_RESULT_PATH)
+        "--calibration-result", required=True,
+        help="calibration_result.json from the same calibration run",
     )
     parser.add_argument("--rig", default=str(config.DEFAULT_RIG_PATH))
     parser.add_argument("--out-dir", required=True)
     args = parser.parse_args()
 
     T2 = calibration_io.load_transform(args.transform)
+    intrinsics = calibration_io.load_intrinsics_from_manifest(args.camera_manifest)
+    calibration_io.check_intrinsics_match_calibration(
+        intrinsics, calibration_io.load_calibration_result(args.calibration_result),
+    )
     rig_cfg = rig_module.load_rig(args.rig, allow_placeholder=True)
     rig_module.warn_if_placeholder(rig_cfg)
 
@@ -178,8 +165,7 @@ def main() -> None:
     pose_records = []
     for image_path, laser_path in pairs:
         record = process_pose(
-            image_path, laser_path, T2, rig_cfg,
-            args.metadata_dir, args.calibration_result, out_dir,
+            image_path, laser_path, T2, rig_cfg, intrinsics, out_dir,
         )
         pose_records.append(record)
         print(
@@ -197,7 +183,8 @@ def main() -> None:
             {
                 "image_dir": str(args.image_dir),
                 "laser_dir": str(args.laser_dir),
-                "metadata_dir": args.metadata_dir,
+                "camera_manifest": args.camera_manifest,
+                "calibration_result_path": str(args.calibration_result),
                 "transform_path": str(args.transform),
                 "rig_path": str(args.rig),
                 "rig_is_placeholder": rig_cfg.is_placeholder,

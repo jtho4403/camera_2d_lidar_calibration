@@ -39,6 +39,7 @@ home = Path.home()
 
 def load_images_from_folder(folder):
     images = []
+    filenames = []
     print("Reading images from directory: " + folder)    
     for filename in sorted(os.listdir(folder)):
         img = cv2.imread(os.path.join(folder,filename))
@@ -47,10 +48,12 @@ def load_images_from_folder(folder):
             # image = cv2.rotate(img, cv2.ROTATE_180)
             # images.append(image)
             images.append(img)
-    return images
+            filenames.append(filename)
+    return images, filenames
 
 def load_clouds_from_folder(folder):
     clouds = []
+    filenames = []
     print("Reading point clouds from directory: " + folder)    
     for filename in sorted(os.listdir(folder)):
         pcd = o3d.io.read_point_cloud(os.path.join(folder,filename))
@@ -58,7 +61,8 @@ def load_clouds_from_folder(folder):
         # print(pcd) 
         if len(pcd.points) > 0:
             clouds.append(pcd)
-    return clouds
+            filenames.append(filename)
+    return clouds, filenames
 
 def load_rectified_left_intrinsics(manifest_path):
     """
@@ -443,9 +447,13 @@ def evaluate_alignment_residuals(
     camera_lines: list[np.ndarray],
     transformed_lidar_lines: list[np.ndarray],
     acceptance_threshold_m: float,
+    pose_ids: list[str] | None = None,
 ) -> dict:
     """
     Evaluate post-alignment quality independently for each pose.
+
+    pose_ids labels the poses in the output (e.g. capture IDs); when omitted
+    they are labelled pose_01, pose_02, ... by position.
 
     Primary metric:
       perpendicular distance from each transformed LiDAR point to the
@@ -553,8 +561,14 @@ def evaluate_alignment_residuals(
             lidar_line,
         )
 
+        pose_label = (
+            pose_ids[pose_index - 1]
+            if pose_ids is not None
+            else f"pose_{pose_index:02d}"
+        )
+
         pose_result = {
-            "pose": f"pose_{pose_index:02d}",
+            "pose": pose_label,
             "primary_metric": (
                 "orthogonal_distance_to_infinite_camera_line"
             ),
@@ -602,7 +616,7 @@ def evaluate_alignment_residuals(
             )
 
         print(
-            f"Pose {pose_index:02d} | "
+            f"Pose {pose_label} | "
             f"orthogonal: "
             f"N={orthogonal_total_count:3d}, "
             f"accepted={orthogonal_accepted_count:3d}/"
@@ -1442,10 +1456,14 @@ def main():
   # Load images and pcb clouds from file, after they are extracted from a rosbag and selected for calibration
   # They have to have one to one correspondences - that is usually true when they are ordered in each folder correctly
   # The load functions will have print outs for order verification
-  images = load_images_from_folder(image_dir)
-  lasers = load_clouds_from_folder(laser_dir)
+  images, image_files = load_images_from_folder(image_dir)
+  lasers, laser_files = load_clouds_from_folder(laser_dir)
 
   assert len(images) == len(lasers), "Images and lasers length mismatch!"
+
+  # Pose labels carried through every output; the laser file stem is the
+  # capture ID for staged sessions (e.g. A09.pcd -> A09).
+  pose_ids = [Path(filename).stem for filename in laser_files]
 
   # Rectified LEFT intrinsics for this capture session, from the ZED SDK.
   # Distortion is zero because ZED SDK rectified images are used.
@@ -1575,6 +1593,9 @@ def main():
   # ------------------------------------------------------------------
   correspondence_payload = {
       "pose_count": np.array(len(laser_points)),
+      "pose_ids": np.array(pose_ids),
+      "image_files": np.array(image_files),
+      "laser_files": np.array(laser_files),
   }
   for pose_index in range(len(laser_points)):
     correspondence_payload[f"pose_{pose_index:02d}_lidar_points"] = laser_points[pose_index]
@@ -1692,6 +1713,7 @@ def main():
       camera_lines=camera_points,
       transformed_lidar_lines=transformed_lidar_lines,
       acceptance_threshold_m=final_residual_threshold_m,
+      pose_ids=pose_ids,
   )
 
   save_residual_summary_csv(
@@ -1751,6 +1773,9 @@ def main():
 
       "image_dir": str(image_dir),
       "laser_dir": str(laser_dir),
+      "pose_ids": pose_ids,
+      "image_files": image_files,
+      "laser_files": laser_files,
 
       "image_count": len(images),
       "laser_count": len(lasers),

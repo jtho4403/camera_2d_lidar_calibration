@@ -28,9 +28,9 @@ from pcd_io import load_valid_xy
 from planarity import analyse_trend
 from ransac_line import fit_dominant_wall
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DATA_ROOT = REPO_ROOT / "data"
-RESULTS_ROOT = REPO_ROOT / "results" / "lidar_characterisation"
+REPO_ROOT = config.REPO_ROOT
+DATA_ROOT = config.DATA_ROOT
+RESULTS_ROOT = config.RESULTS_ROOT
 PLOTS_ROOT = RESULTS_ROOT / "plots"
 
 

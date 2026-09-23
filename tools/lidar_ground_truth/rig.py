@@ -76,10 +76,8 @@ def _validate_schema(raw: dict, path: Path) -> None:
     """Hard, always-enforced structural validation.
 
     Deliberately does NOT check that delta_z_chain sums to delta_z_m -- the
-    chain is measurement provenance, not a value the pipeline derives, and
-    PLAN.md Sec 3.3's own template example leaves the chain at all-zero
-    placeholders while delta_z_m already carries an illustrative non-zero
-    default (see rig_template.json's notes field).
+    chain is measurement provenance, not a value the pipeline derives, and a
+    placeholder file's chain terms are all zero regardless of delta_z_m.
     """
     missing = [f for f in REQUIRED_FIELDS if f not in raw]
     if missing:
@@ -211,11 +209,11 @@ def row_geometry_report(
     return rows
 
 
-def _load_fy_cy_from_metadata(metadata_path: Path) -> tuple[float, float]:
-    with open(metadata_path) as f:
-        meta = json.load(f)
-    left = meta["camera_info"]["left_camera"]
-    return float(left["fy"]), float(left["cy"])
+def _load_fy_cy_height_from_manifest(manifest_path: Path) -> tuple[float, float, int]:
+    with open(manifest_path) as f:
+        manifest = json.load(f)
+    left = manifest["calibration"]["rectified"]["left"]
+    return float(left["fy"]), float(left["cy"]), int(left["image_size"][1])
 
 
 def main() -> None:
@@ -225,19 +223,18 @@ def main() -> None:
         default=str(Path(__file__).resolve().parents[2] / "config" / "rig_template.json"),
     )
     parser.add_argument(
-        "--metadata",
+        "--camera-manifest",
         required=True,
         help=(
-            "a metadata_pose_NN.json to source the actual rectified f_y/c_y "
-            "from (PLAN.md Sec 1.3), e.g. "
-            "data/data_2026-06-28/additional_image_data/metadata_pose_01.json"
+            "a capture session's session_manifest.json to source the rectified "
+            "f_y/c_y and image height from (PLAN.md Sec 1.3), e.g. "
+            "data/<session>/captures/session_manifest.json"
         ),
     )
     parser.add_argument(
         "--distances-m", nargs="+", type=float,
         default=[0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0],
     )
-    parser.add_argument("--image-height-px", type=int, default=720)
     args = parser.parse_args()
 
     rig_path = Path(args.rig)
@@ -260,16 +257,16 @@ def main() -> None:
     cfg = load_rig(rig_path, allow_placeholder=True)
     warn_if_placeholder(cfg)
 
-    f_y, c_y = _load_fy_cy_from_metadata(Path(args.metadata))
+    f_y, c_y, image_height_px = _load_fy_cy_height_from_manifest(Path(args.camera_manifest))
     print()
-    print(f"Using f_y={f_y:.4f} px, c_y={c_y:.4f} px from {args.metadata}")
+    print(f"Using f_y={f_y:.4f} px, c_y={c_y:.4f} px from {args.camera_manifest}")
     print(f"delta_z_m={cfg.delta_z_m} (rig measurement_status={cfg.measurement_status})")
     print()
     header = f"{'x_R (m)':>10} | {'row offset (px)':>16} | {'predicted row (px)':>19} | inside image?"
     print(header)
     print("-" * len(header))
     for row in row_geometry_report(f_y, c_y, cfg.delta_z_m, args.distances_m):
-        inside = 0 <= row["predicted_row_px"] <= args.image_height_px
+        inside = 0 <= row["predicted_row_px"] <= image_height_px
         print(
             f"{row['distance_m']:>10.2f} | {row['row_offset_px']:>16.2f} | "
             f"{row['predicted_row_px']:>19.2f} | {'yes' if inside else 'NO'}"
