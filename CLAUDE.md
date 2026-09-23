@@ -20,12 +20,17 @@ python camera_2d_lidar_calibration/cam_intrinsic.py <path/to/image/folder>
 python tools/stage_calibration_session.py data/<session>   # builds images/ + lasers/ from captures/ + extracted_pcd/
 python camera_2d_lidar_calibration/cam_lidar_2d_icp.py data/<session>/images data/<session>/lasers \
     --camera-manifest data/<session>/captures/session_manifest.json \
-    --init-camera-origin-in-lidar <x_m> <y_m> --init-yaw-deg <deg>
+    --init-camera-origin-in-lidar <x_m> <y_m> --init-yaw-deg <deg> \
+    --rig config/rig_template.json   # camera lines at the LiDAR scan-plane height (delta_z_m)
+# Re-solve without the GUIs from an earlier run's saved LiDAR selections:
+#   ... --reuse-lidar-selections results/calibration/<run>/calibration_correspondences.npz
 ```
+
+The ground-truth stage (`tools/lidar_ground_truth/`, see its README) then runs `rig.py` → `overlay_diagnostic.py` → `validate_board_plane.py` → `export_scene.py` against a calibration run, the session's `session_manifest.json`/`staging_manifest.json` and `config/rig_template.json`; every input is passed explicitly.
 
 Outputs go to `results/calibration/<session>/` (override with `--out-dir`), never the repo root. On the ROSbot XL + ZED 2i + RPLIDAR S3 rig the LiDAR scan frame is rotated ~180° relative to the camera, so `--init-yaw-deg 180` is required (a yaw-0 seed cannot converge), and in `SelectPointsInterface` the board appears at negative x.
 
-The extrinsic script (`cam_lidar_2d_icp.py`) is interactive: for each image/cloud pair it opens a Tk/matplotlib window to confirm checkerboard detection (`ImageVisInterface`), then another to let you zoom in and select the LiDAR points on the wall (`SelectPointsInterface`). It cannot run headless.
+The extrinsic script (`cam_lidar_2d_icp.py`) is interactive: for each image/cloud pair it opens a Tk/matplotlib window to confirm checkerboard detection (`ImageVisInterface`), then another to let you zoom in and select the LiDAR points on the wall (`SelectPointsInterface`). It cannot run headless, except with `--reuse-lidar-selections`, which skips both windows.
 
 `test.py` and `tools/plot_lidar_candidates.py` are standalone diagnostic scripts, not a test suite — there is no pytest suite despite `python3-pytest` being listed as a `test_depend` in `package.xml`. Run them directly with `python test.py` / `python tools/plot_lidar_candidates.py --input-root ...` when needed.
 

@@ -33,7 +33,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from sklearn import linear_model
 from sklearn.neighbors import NearestNeighbors
 
-from gui import SelectPointsInterface, ImageVisInterface
+from gui import SelectPointsInterface, ImageVisInterface, board_line_points
 
 home = Path.home()
 
@@ -1435,6 +1435,21 @@ def main():
            "frame, in degrees. Used with --init-camera-origin-in-lidar.",
   )
   parser.add_argument(
+      "--rig",
+      default=None,
+      help="Rig parameter file (config/rig_<id>.json). When given, each camera "
+           "line is where the board plane meets the LiDAR scan plane "
+           "(z = delta_z_m in the camera robot frame) instead of the board's "
+           "first inner corner row.",
+  )
+  parser.add_argument(
+      "--reuse-lidar-selections",
+      default=None,
+      help="calibration_correspondences.npz from an earlier run on the same "
+           "images/lasers. Skips both GUIs: the checkerboard is re-detected "
+           "and the saved LiDAR selections are reused, matched by pose ID.",
+  )
+  parser.add_argument(
       "--out-dir",
       default=None,
       help="Output directory. Defaults to results/calibration/<session>, "
@@ -1475,6 +1490,27 @@ def main():
 
   # termination criteria, for aligning checkerboard corners onto an image
   criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+
+  # Height of the LiDAR scan plane in the camera robot frame, if known.
+  scan_plane_height = None
+  if args.rig is not None:
+    with open(args.rig) as f:
+      scan_plane_height = float(json.load(f)["delta_z_m"])
+    print(f"Camera lines at the LiDAR scan-plane height z = {scan_plane_height:+.4f} m (from {args.rig})")
+
+  # Saved LiDAR selections, keyed by pose ID, when re-solving without the GUIs.
+  reused_selections = None
+  if args.reuse_lidar_selections is not None:
+    saved = np.load(args.reuse_lidar_selections)
+    saved_ids = [str(pose_id) for pose_id in saved["pose_ids"]]
+    reused_selections = {
+        pose_id: saved[f"pose_{index:02d}_lidar_points"]
+        for index, pose_id in enumerate(saved_ids)
+    }
+    missing = [pose_id for pose_id in pose_ids if pose_id not in reused_selections]
+    if missing:
+      raise ValueError(f"{args.reuse_lidar_selections} has no LiDAR selection for poses {missing}")
+    print(f"Reusing LiDAR selections for {len(pose_ids)} poses from {args.reuse_lidar_selections}")
 
   # Checkerboard shape, example: 7*10 in checkerboard blocks, 20 mm in checkerboard block size
   # TODO: Change the checkerboard parameters into those that match with the actual board you are using
@@ -1557,14 +1593,20 @@ def main():
 
       # Visualisation - Interactive and extract horizontal line
       # This is where a horizontal line is actually estimated based on the checkerboard pose
-      visualise_camera_interface = ImageVisInterface(
-          rvecs, tvecs, undistorted_image, camera_points,
-          line_start=camera_line_start, line_end=camera_line_end,
-      )
-      confirmed, camera_points = visualise_camera_interface.run()
-      if confirmed == False:
-        print("Something wrong with this image?")
-        return
+      if reused_selections is not None:
+        camera_points.append(board_line_points(
+            rvecs, tvecs, camera_line_start, camera_line_end, scan_plane_height
+        ))
+      else:
+        visualise_camera_interface = ImageVisInterface(
+            rvecs, tvecs, undistorted_image, camera_points,
+            line_start=camera_line_start, line_end=camera_line_end,
+            line_height=scan_plane_height,
+        )
+        confirmed, camera_points = visualise_camera_interface.run()
+        if confirmed == False:
+          print("Something wrong with this image?")
+          return
       # else:
       #   print(camera_points) # For introspection only
     else: 
@@ -1573,6 +1615,9 @@ def main():
 
     # Extract the line that correspond to the checkerboard from the LiDAR scan
     # Using an interactive interface
+    if reused_selections is not None:
+      laser_points.append(reused_selections[pose_ids[i]])
+      continue
     this_laser_points = np.asarray(this_laser.points)
     select_points_interface = SelectPointsInterface(this_laser_points, laser_points)
     laser_points = select_points_interface.run()
@@ -1770,6 +1815,16 @@ def main():
           camera_line_start,
           camera_line_end,
       ],
+
+      "camera_line_height_m": scan_plane_height,
+      "camera_line_height_source": (
+          str(args.rig) if args.rig is not None else "board first inner corner row"
+      ),
+      "lidar_selections_source": (
+          str(args.reuse_lidar_selections)
+          if args.reuse_lidar_selections is not None
+          else "interactive SelectPointsInterface"
+      ),
 
       "image_dir": str(image_dir),
       "laser_dir": str(laser_dir),

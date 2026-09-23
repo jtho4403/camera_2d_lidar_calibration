@@ -21,6 +21,61 @@ from mpl_toolkits.mplot3d import Axes3D
 from sklearn import linear_model
 
 
+def board_line_points(rotation_rod, translation, line_start, line_end, line_height=None):
+  """
+  2D camera-frame (robot convention) points of the horizontal line on the checkerboard
+  that the LiDAR scan plane is compared against, from the board's solvePnP pose.
+
+  line_start/line_end give the extent along the board X axis, from the board origin, in metres.
+  With line_height=None the line runs along the board X axis through the board origin (the
+  first inner corner row). With line_height set (the LiDAR scan-plane height z in the camera
+  robot frame, i.e. the rig's delta_z), the line is where the board plane meets that
+  horizontal plane, which is where the LiDAR actually strikes a board that is not vertical.
+  """
+  # OpenCV and robotic frame convention conversion - VERY IMPORTANT and common
+  rot_rod_zn90 = np.array([[0], [0], [-np.pi/2]]) # rotation around z axis for -90 degrees, in Rodrigues form
+  rot_zn90, _ = cv2.Rodrigues(rot_rod_zn90) # in matrix form
+  rot_rod_xn90 = np.array([[-np.pi/2], [0], [0]]) # rotation around x axis for -90 degrees, in Rodrigues form
+  rot_xn90, _ = cv2.Rodrigues(rot_rod_xn90)
+  rot_cam_to_robot = rot_zn90 @ rot_xn90 # the rotation that transforms a point in the cv convention to that in the robot convention
+  tf_cam_to_robot = np.eye(4)
+  tf_cam_to_robot[0:3, 0:3] = rot_cam_to_robot
+
+  # Compute the tf from the checkerboard to camera - used to transform a point in checkerboard frame to camera frame
+  # Also known as the pose of the checkerboard in camera frame
+  rotation, _ = cv2.Rodrigues(rotation_rod)
+  tf_board_to_cam = np.eye(4)
+  tf_board_to_cam[0:3, 0:3] = rotation
+  tf_board_to_cam[0:3, 3:4] = translation
+
+  # The tf from the board frame in robotic convention, to the robot frame (camera frame) in robotic convention
+  # The pose of the board frame in robotic convention, in the robot frame (camera frame), in robotic convention
+  # Used to transform a point in board frame into camera frame
+  tf_robot_board_to_robot = tf_cam_to_robot @ tf_board_to_cam
+
+  # spacing 0.5 cm
+  # The line must cover every LiDAR return on the target, otherwise ICP pulls the outermost returns toward the line ends
+  line_spacing = 0.005
+  board_origin = (tf_robot_board_to_robot @ (np.array([0,0,0,1]).reshape(4,1)))[:3,:]
+
+  # Use checkerboard X-axis as the horizontal wall direction.
+  # With the corrected checkerboard object grid, X corresponds to the board width.
+  board_x_direction = (tf_robot_board_to_robot @ (np.array([1,0,0,1]).reshape(4,1)))[:3,:] - board_origin
+  board_x_direction = board_x_direction / la.norm(board_x_direction)
+
+  line_base = np.linspace(line_start, line_end, int((line_end - line_start)/line_spacing)+1)
+  line_points = board_origin.T + np.outer(line_base, board_x_direction)
+
+  if line_height is not None:
+    # Slide each point along the board Y axis (in the board plane) until it reaches z = line_height.
+    board_y_direction = (tf_robot_board_to_robot @ (np.array([0,1,0,1]).reshape(4,1)))[:3,:] - board_origin
+    board_y_direction = board_y_direction / la.norm(board_y_direction)
+    along_y = (line_height - line_points[:, 2]) / board_y_direction[2, 0]
+    line_points = line_points + np.outer(along_y, board_y_direction)
+
+  return line_points[:, :2]
+
+
 class SelectPointsInterface:
   # Class used to create an interactive GUI for selecting LIDAR points corresponding to the checkerboard
   def __init__(self, laser, laser_points):
@@ -136,7 +191,7 @@ class SelectPointsInterface:
 class ImageVisInterface:
   # Class for an interface to visualise images and checkerboard
   # Also where we estimate the line in the camera frame corresponding to the checkerboard using its pose
-  def __init__(self, rotation_rod, translation, camera_image, camera_points, line_start, line_end):
+  def __init__(self, rotation_rod, translation, camera_image, camera_points, line_start, line_end, line_height=None):
     # GUI
     self.root = tk.Tk()
     self.root.title("Camera 2D LiDAR Calibration - Camera View")
@@ -165,6 +220,7 @@ class ImageVisInterface:
     self.camera_points = camera_points.copy() # extracted points, accumulated in every call of this class
     self.line_start = line_start # extent of the extracted line along the board X axis, from the board origin, in metres
     self.line_end = line_end
+    self.line_height = line_height # LiDAR scan-plane height in the camera robot frame, or None for the board origin row
 
     self.add_figure()
 
@@ -191,47 +247,9 @@ class ImageVisInterface:
     self.ylims = event_ax.get_ylim()
 
   def done_callback(self, event) -> None:
-    # OpenCV and robotic frame convention conversion - VERY IMPORTANT and common
-    rot_rod_zn90 = np.array([[0], [0], [-np.pi/2]]) # rotation around z axis for -90 degrees, in Rodrigues form
-    rot_zn90, _ = cv2.Rodrigues(rot_rod_zn90) # in matrix form
-    rot_rod_xn90 = np.array([[-np.pi/2], [0], [0]]) # rotation around x axis for -90 degrees, in Rodrigues form
-    rot_xn90, _ = cv2.Rodrigues(rot_rod_xn90)
-    rot_cam_to_robot = rot_zn90 @ rot_xn90 # the rotation that transforms a point in the cv convention to that in the robot convention
-    tf_cam_to_robot = np.eye(4)
-    tf_cam_to_robot[0:3, 0:3] = rot_cam_to_robot
-    # print(tf_cam_to_robot)
-
-    # Compute the tf from the checkerboard to camera - used to transform a point in checkerboard frame to camera frame
-    # Also known as the pose of the checkerboard in camera frame
-    rotation, _ = cv2.Rodrigues(self.rotation_rod)
-    tf_board_to_cam = np.eye(4)
-    tf_board_to_cam[0:3, 0:3] = rotation
-    tf_board_to_cam[0:3, 3:4] = self.translation
-    # print(tf_board_to_cam)
-
-    # The tf from the board frame in robotic convention, to the robot frame (camera frame) in robotic convention
-    # The pose of the board frame in robotic convention, in the robot frame (camera frame), in robotic convention
-    # Used to transform a point in board frame into camera frame
-    tf_robot_board_to_robot = tf_cam_to_robot @ tf_board_to_cam
-    # print(tf_robot_board_to_robot)
-
-    # Let's extract/compute a line that goes from the board's origin
-    # along the board X axis from line_start to line_end (set by the caller from the board geometry)
-    # spacing 0.5 cm
-    # The line must cover every LiDAR return on the target, otherwise ICP pulls the outermost returns toward the line ends
-    line_end = self.line_end
-    line_start = self.line_start
-    line_spacing = 0.005
-    board_origin = (tf_robot_board_to_robot @ (np.array([0,0,0,1]).reshape(4,1)))[:3,:]
-    
-    # Use checkerboard X-axis as the horizontal wall direction.
-    # With the corrected checkerboard object grid, X corresponds to the board width.
-    board_x_direction = (tf_robot_board_to_robot @ (np.array([1,0,0,1]).reshape(4,1)))[:3,:] - board_origin
-    board_x_direction = board_x_direction / la.norm(board_x_direction)
-
-    line_base = np.linspace(line_start, line_end, int((line_end - line_start)/line_spacing)+1)
-    line_points = board_origin.T + np.outer(line_base, board_x_direction)
-    line_points_2d = line_points[:, :2]
+    line_points_2d = board_line_points(
+        self.rotation_rod, self.translation, self.line_start, self.line_end, self.line_height
+    )
     # Write this line to an output list
     self.camera_points.append(line_points_2d)
 

@@ -15,9 +15,12 @@ Two independent checks are applied to a rig file:
      validates" means at the PLAN.md Sec 8 Phase 0 gate -- it says nothing
      about whether the *values* are real measurements.
   2. Measurement-readiness ("placeholder") gating (`load_rig`, enforced by
-     default): a rig file whose measurement_status is not "measured", or
-     whose measured_on still carries the PLACEHOLDER sentinel, or whose
-     delta_z_chain still has any placeholder=true entry, refuses to load
+     default): a rig file whose measurement_status is not one of
+     NON_PLACEHOLDER_STATUSES ("measured", or "estimated" for values derived
+     from documented sources with stated tolerances rather than direct
+     metrology), or whose measured_on still carries the PLACEHOLDER
+     sentinel, or whose delta_z_chain still has any placeholder=true entry,
+     refuses to load
      unless the caller explicitly passes allow_placeholder=True. Every call
      site that does so must also call `warn_if_placeholder` so the
      placeholder status is visible in every diagnostic that has to run
@@ -46,12 +49,7 @@ REQUIRED_FIELDS = [
     "board_standoff_m",
 ]
 
-REQUIRED_DELTA_Z_CHAIN_TERMS = {
-    "h_lidar_mount",
-    "z_scan_plane_above_lidar_base",
-    "h_camera_mount",
-    "z_optical_centre_above_camera_datum",
-}
+NON_PLACEHOLDER_STATUSES = {"MEASURED", "ESTIMATED"}
 
 
 @dataclass
@@ -75,9 +73,9 @@ class RigConfig:
 def _validate_schema(raw: dict, path: Path) -> None:
     """Hard, always-enforced structural validation.
 
-    Deliberately does NOT check that delta_z_chain sums to delta_z_m -- the
-    chain is measurement provenance, not a value the pipeline derives, and a
-    placeholder file's chain terms are all zero regardless of delta_z_m.
+    delta_z_chain is the provenance of delta_z_m: each term's value is added
+    with its sign (+1 for LiDAR-side heights, -1 for camera-side heights), and
+    the sum must equal delta_z_m unless the chain still has placeholder terms.
     """
     missing = [f for f in REQUIRED_FIELDS if f not in raw]
     if missing:
@@ -86,21 +84,24 @@ def _validate_schema(raw: dict, path: Path) -> None:
     if not isinstance(raw["delta_z_chain"], list) or not raw["delta_z_chain"]:
         raise ValueError(f"Rig file {path}: delta_z_chain must be a non-empty list")
 
-    chain_terms = set()
     for entry in raw["delta_z_chain"]:
-        for key in ("term", "value_m", "source", "tol_m"):
+        for key in ("term", "sign", "value_m", "source", "tol_m"):
             if key not in entry:
                 raise ValueError(
                     f"Rig file {path}: delta_z_chain entry missing '{key}': {entry}"
                 )
-        chain_terms.add(entry["term"])
+        if entry["sign"] not in (1, -1):
+            raise ValueError(
+                f"Rig file {path}: delta_z_chain entry sign must be +1 or -1: {entry}"
+            )
 
-    missing_terms = REQUIRED_DELTA_Z_CHAIN_TERMS - chain_terms
-    if missing_terms:
-        raise ValueError(
-            f"Rig file {path}: delta_z_chain is missing required terms: "
-            f"{sorted(missing_terms)}"
-        )
+    if not any(entry.get("placeholder") for entry in raw["delta_z_chain"]):
+        chain_sum = sum(e["sign"] * float(e["value_m"]) for e in raw["delta_z_chain"])
+        if abs(chain_sum - float(raw["delta_z_m"])) > 1e-6:
+            raise ValueError(
+                f"Rig file {path}: delta_z_chain sums to {chain_sum:.6f} m but "
+                f"delta_z_m is {raw['delta_z_m']}"
+            )
 
     for name in ("delta_z_tolerance_m", "attitude_tolerance_deg"):
         if float(raw[name]) <= 0:
@@ -114,7 +115,9 @@ def _is_placeholder(raw: dict) -> tuple[bool, list[str]]:
     placeholder_terms = [
         entry["term"] for entry in raw["delta_z_chain"] if entry.get("placeholder")
     ]
-    status_is_placeholder = str(raw["measurement_status"]).upper() != "MEASURED"
+    status_is_placeholder = (
+        str(raw["measurement_status"]).upper() not in NON_PLACEHOLDER_STATUSES
+    )
     measured_on_is_placeholder = str(raw["measured_on"]).startswith(
         PLACEHOLDER_MEASURED_ON_PREFIX
     )
@@ -145,7 +148,7 @@ def load_rig(path: str | Path, allow_placeholder: bool = False) -> RigConfig:
             f"measured_on={raw['measured_on']!r}, "
             f"placeholder delta_z_chain terms={placeholder_terms}). "
             "Real rig metrology (PLAN.md Sec 3) must be recorded -- "
-            "measurement_status set to \"measured\", measured_on set to a "
+            "measurement_status set to \"measured\" or \"estimated\", measured_on set to a "
             "real date, and every delta_z_chain placeholder flag removed -- "
             "before this file may be used. Pass allow_placeholder=True only "
             "from Phase 0/1 development diagnostics, and warn loudly when "
@@ -248,8 +251,11 @@ def main() -> None:
     print()
     print("Strict (measurement-readiness) load, default allow_placeholder=False:")
     try:
-        load_rig(rig_path, allow_placeholder=False)
-        print("Strict load: PASSED (this rig file is fully measured)")
+        strict = load_rig(rig_path, allow_placeholder=False)
+        print(
+            "Strict load: PASSED (measurement_status="
+            f"{strict.measurement_status!r}, not a placeholder)"
+        )
     except RuntimeError as exc:
         print(f"Strict load: FAILED LOUDLY as expected for a placeholder rig file:\n  {exc}")
 

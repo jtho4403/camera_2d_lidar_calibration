@@ -1,47 +1,33 @@
 {
   "rig_id": "rosbotxl_zed2i_rplidars3_v1",
-  "measurement_status": "PLACEHOLDER",
-  "measured_on": "PLACEHOLDER-NOT-YET-MEASURED",
+  "measurement_status": "estimated",
+  "measured_on": "2026-09-23",
 
-  "delta_z_m": 0.00,
-  "delta_z_tolerance_m": 0.00,
+  "delta_z_m": -0.0472,
+  "delta_z_tolerance_m": 0.005,
   "delta_z_chain": [
     {
-      "term": "h_lidar_mount",
-      "value_m": 0.0,
-      "source": "PLACEHOLDER: calipers vs ROSbot XL LiDAR mounting-plate datum line",
-      "tol_m": 0.001,
-      "placeholder": true
+      "term": "z_scan_plane_above_floor",
+      "sign": 1,
+      "value_m": 0.1748,
+      "source": "ROSbot XL and RPLIDAR S3 technical drawings (user-supplied, 2026-09-23 capture configuration)",
+      "tol_m": 0.003
     },
     {
-      "term": "z_scan_plane_above_lidar_base",
-      "value_m": 0.0,
-      "source": "PLACEHOLDER: RPLIDAR S3 mechanical dimensions drawing (datasheet)",
-      "tol_m": 0.001,
-      "placeholder": true
-    },
-    {
-      "term": "h_camera_mount",
-      "value_m": 0.0,
-      "source": "PLACEHOLDER: calipers vs ROSbot XL camera mounting-plate datum line",
-      "tol_m": 0.001,
-      "placeholder": true
-    },
-    {
-      "term": "z_optical_centre_above_camera_datum",
-      "value_m": 0.0,
-      "source": "PLACEHOLDER: ZED 2i mechanical drawing + SDK reported left optical centre",
-      "tol_m": 0.002,
-      "placeholder": true
+      "term": "z_camera_optical_centre_above_floor",
+      "sign": -1,
+      "value_m": 0.2220,
+      "source": "stereo floor-plane fit on data_2026-09-23 rectified pairs: tools/lidar_ground_truth/camera_height_from_stereo.py -> results/lidar_ground_truth/data_2026-09-23/camera_height_from_stereo.json (median of 23 captures, std 0.8 mm)",
+      "tol_m": 0.004
     }
   ],
 
   "pitch_deg": 0.0,
   "roll_deg": 0.0,
-  "attitude_tolerance_deg": 0.2,
-  "attitude_instrument": "PLACEHOLDER: <make/model>, spec +-0.1 deg (not yet selected/measured)",
+  "attitude_tolerance_deg": 0.5,
+  "attitude_instrument": "Not independently measured. Relative LiDAR-to-camera pitch/roll assumed zero because both sensors share the robot's mounting attitude (user, 2026-09-23). Camera absolute attitude from the ZED 2i IMU (session_manifest.json reference_attitude: roll 0.062 deg, pitch 0.057 deg, stated accuracy +-0.5 deg); stereo floor-plane tilt 0.33 / 0.27 deg. Tolerance set to the IMU's +-0.5 deg.",
 
-  "board_standoff_m": 0.00,
+  "board_standoff_m": 0.0,
 
-  "notes": "PLACEHOLDER rig file for the ROSbot XL + ZED 2i + RPLIDAR S3 rig (PLAN.md Sec 0). No metrology for this rig has been recorded yet: delta_z_m, delta_z_tolerance_m, board_standoff_m, pitch_deg and roll_deg are zeroed and every delta_z_chain term is a placeholder (placeholder=true). Replace every value with measured values (PLAN.md Sec 3) before using this file for anything beyond development diagnostics. Sign convention (PLAN.md Sec 1.2): delta_z_m is the height of the LiDAR scan plane above the rectified left camera optical centre in frame R, positive = LiDAR higher than camera. rig.load_rig() refuses (raises RuntimeError) to load this file unless the caller explicitly passes allow_placeholder=True, and any such call must print a loud warning banner (see rig.warn_if_placeholder)."
+  "notes": "Rig parameters for the ROSbot XL + ZED 2i + RPLIDAR S3 rig as captured in data_2026-09-23. The LiDAR is mounted below the camera. delta_z_m = z_scan_plane_above_floor - z_camera_optical_centre_above_floor = 0.1748 - 0.2220 = -0.0472 m (sign convention, PLAN.md Sec 1.2: height of the LiDAR scan plane above the rectified left camera optical centre in frame R, positive = LiDAR higher). delta_z_tolerance_m 0.005 is the RSS of the drawing tolerance (3 mm), the stereo height's scale uncertainty (about 3 mm: a 1.4 % scale ambiguity is present in this session's board-plane data, see results), and carpet-pile / wheel-contact ambiguity between the drawing's ground and the stereo-observed floor (about 2 mm). measurement_status is 'estimated' rather than 'measured' because neither height is a caliper metrology chain (PLAN.md Sec 3.1). board_standoff_m is 0 because the checkerboard is free-standing and the LiDAR strikes the printed board face that solvePnP locates, not a wall behind it."
 }

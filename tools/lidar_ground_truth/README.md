@@ -51,7 +51,7 @@ implementation and PLAN.md Sec 2/9 for the full error-budget and
 observability discussion. **Never let a vertical parameter leak into the
 depth or column computation.**
 
-## Modules (Phase 0/1)
+## Modules
 
 | Module | Responsibility |
 |---|---|
@@ -62,18 +62,23 @@ depth or column computation.**
 | `projection.py` | the `project_scan` core above |
 | `filters.py` | model-independent occlusion/parallax rejection (incidence-angle filter deferred to Phase 5) |
 | `overlay_diagnostic.py` | Phase 1 verification-gate CLI (PLAN.md Sec 5.5) |
+| `camera_height_from_stereo.py` | camera optical-centre height above the floor from the rectified stereo snapshots (rig metrology input for `delta_z_m`) |
+| `uncertainty.py` | bootstrap T2 ensemble (re-solved with the calibration's own staged ICP) and per-point Monte Carlo (PLAN.md Sec 6.4) |
+| `validate_board_plane.py` | board-plane correctness proof, in-sample and leave-one-pose-out, with PLAN.md Sec 5.6 acceptance checks |
+| `export_scene.py` | per-scene ground-truth CSV + provenance JSON + overlays (PLAN.md Sec 6.5) |
 
 ## Rig parameters (PLAN.md Sec 3)
 
-`config/rig_template.json` is a **placeholder** for the ROSbot XL + ZED 2i +
-RPLIDAR S3 rig: no metrology has been recorded yet (delta_z, pitch, roll,
-the delta_z provenance chain and board_standoff are zeroed).
-`rig.load_rig(path, allow_placeholder=False)` (the default) refuses to load
-it and raises `RuntimeError`; tools that must run before real metrology
-exists opt in with `allow_placeholder=True` and must call
-`rig.warn_if_placeholder` immediately after. Schema validation always runs,
-and requires `delta_z_tolerance_m > 0`. Do not trust `v`/row output from any
-run against the template file.
+`config/rig_template.json` holds the ROSbot XL + ZED 2i + RPLIDAR S3 rig
+parameters. `delta_z_chain` is a list of signed height terms (+1 LiDAR side,
+-1 camera side) that must sum to `delta_z_m`; each records its source and
+tolerance. `measurement_status` is `measured` (direct metrology) or
+`estimated` (documented derivation with stated tolerances); anything else,
+a `PLACEHOLDER` date, or a chain term flagged `placeholder` makes
+`rig.load_rig(path, allow_placeholder=False)` (the default) raise
+`RuntimeError`. Tools that must run before rig parameters exist opt in with
+`allow_placeholder=True` and must call `rig.warn_if_placeholder` right after.
+Schema validation always runs and requires `delta_z_tolerance_m > 0`.
 
 ## Running
 
@@ -92,7 +97,30 @@ python tools/lidar_ground_truth/overlay_diagnostic.py \
     --transform results/calibration/<session>/lidar_to_camera_2d.npy \
     --calibration-result results/calibration/<session>/calibration_result.json \
     --out-dir results/lidar_ground_truth/<session>
+
+# Phase 2: board-plane validation (builds and caches the bootstrap T2 ensemble).
+python tools/lidar_ground_truth/validate_board_plane.py \
+    --correspondences results/calibration/<run>/calibration_correspondences.npz \
+    --transform results/calibration/<run>/lidar_to_camera_2d.npy \
+    --calibration-result results/calibration/<run>/calibration_result.json \
+    --camera-manifest data/<session>/captures/session_manifest.json \
+    --staging-manifest data/<session>/staging_manifest.json \
+    --out-dir results/lidar_ground_truth/<session>/board_plane_validation
+
+# Phase 4: export ground-truth pixels for every staged capture, grouped by scene.
+python tools/lidar_ground_truth/export_scene.py \
+    --session data/<session> \
+    --transform results/calibration/<run>/lidar_to_camera_2d.npy \
+    --calibration-result results/calibration/<run>/calibration_result.json \
+    --correspondences results/calibration/<run>/calibration_correspondences.npz \
+    --bootstrap-ensemble results/lidar_ground_truth/<session>/board_plane_validation/bootstrap_T2_ensemble.npz \
+    --board-plane-validation results/lidar_ground_truth/<session>/board_plane_validation/board_plane_validation.json \
+    --out-dir results/lidar_ground_truth/<session>/export
 ```
+
+`<run>` should be a calibration solved with `--rig` (camera lines at the
+LiDAR scan-plane height); an existing interactive run can be re-solved that
+way without the GUIs via `cam_lidar_2d_icp.py --reuse-lidar-selections`.
 
 ## Sensor conventions confirmed on real S3 data (data_2026-09-23)
 

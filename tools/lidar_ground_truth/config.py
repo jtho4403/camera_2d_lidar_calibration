@@ -45,3 +45,18 @@ DEFAULT_RIG_PATH = CONFIG_ROOT / "rig_template.json"
 # and rectified intrinsics (session_manifest.json) are per-session inputs
 # passed on the command line; there are deliberately no defaults, so a run
 # can never pick up another session's calibration by accident.
+
+# --- Uncertainty (uncertainty.py, PLAN.md Sec 6.4) ---
+BOOTSTRAP_RESAMPLES = 200
+BOOTSTRAP_SEED = 0
+MONTE_CARLO_SAMPLES = 200
+MONTE_CARLO_SEED = 0
+
+# --- Board-plane validation acceptance thresholds (PLAN.md Sec 5.6) ---
+# Stated before the tests are run. The LiDAR noise floor is the per-bearing
+# range spread of the staged burst (staging_manifest.json), so the bias
+# threshold is read from the session rather than fixed here.
+ACCEPT_BOOTSTRAP_YAW_STD_DEG = 0.3
+# A trend (slope of the residual vs distance or vs board yaw) fails when it is
+# significant at this many standard errors.
+ACCEPT_TREND_SIGNIFICANCE_SIGMA = 2.0
