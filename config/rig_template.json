@@ -3,8 +3,8 @@
   "measurement_status": "PLACEHOLDER",
   "measured_on": "PLACEHOLDER-NOT-YET-MEASURED",
 
-  "delta_z_m": 0.045,
-  "delta_z_tolerance_m": 0.004,
+  "delta_z_m": 0.00,
+  "delta_z_tolerance_m": 0.00,
   "delta_z_chain": [
     {
       "term": "h_lidar_mount",
@@ -41,7 +41,7 @@
   "attitude_tolerance_deg": 0.2,
   "attitude_instrument": "PLACEHOLDER: <make/model>, spec +-0.1 deg (not yet selected/measured)",
 
-  "board_standoff_m": 0.005,
+  "board_standoff_m": 0.00,
 
-  "notes": "PLACEHOLDER rig file. rig_id names the NEW rig (ROSbot XL + ZED 2i + RPLIDAR S3, PLAN.md Sec 0), but no metrology chain for that rig exists in this repo yet -- delta_z_chain terms, pitch_deg, roll_deg and attitude_instrument are all illustrative placeholders (measurement_status=PLACEHOLDER, every delta_z_chain entry carries placeholder=true). delta_z_m=0.045 is NOT derived from delta_z_chain (which sums to 0.0 while every term is a placeholder) -- it is an illustrative default matching PLAN.md Sec 1.3's own worked example and the OLD (STL-19P) rig's rough manual z_down=-0.045 note in cam_lidar_2d_icp.py::validate_against_manual_rig_geometry, kept only so Phase 0/1 diagnostics have a plausible non-zero delta_z to exercise the row-geometry math and the projection overlay before real metrology exists. Sign convention (PLAN.md Sec 1.2): delta_z_m is the height of the LiDAR scan plane above the rectified left camera optical centre in frame R, positive = LiDAR higher than camera. Do not use this file's numeric values for anything beyond Phase 0/1 development diagnostics -- rig.load_rig() refuses (raises RuntimeError) to load this file unless the caller explicitly passes allow_placeholder=True, and any such call must print a loud warning banner (see rig.warn_if_placeholder)."
+  "notes": "PLACEHOLDER rig file for the ROSbot XL + ZED 2i + RPLIDAR S3 rig (PLAN.md Sec 0). No metrology for this rig has been recorded yet: delta_z_m, delta_z_tolerance_m, board_standoff_m, pitch_deg and roll_deg are zeroed and every delta_z_chain term is a placeholder (placeholder=true). Replace every value with measured values (PLAN.md Sec 3) before using this file for anything beyond development diagnostics. Sign convention (PLAN.md Sec 1.2): delta_z_m is the height of the LiDAR scan plane above the rectified left camera optical centre in frame R, positive = LiDAR higher than camera. rig.load_rig() refuses (raises RuntimeError) to load this file unless the caller explicitly passes allow_placeholder=True, and any such call must print a loud warning banner (see rig.warn_if_placeholder)."
 }

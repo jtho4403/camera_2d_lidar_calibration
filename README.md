@@ -68,8 +68,13 @@ This script depends on the following packages:
 
 Run at the top directory level of this package folder:
 ```
-python camera_2d_lidar_calibration/cam_lidar_2d_icp.py <path/to/image/folder> <path/to/cloud/folder>
+python camera_2d_lidar_calibration/cam_lidar_2d_icp.py <path/to/image/folder> <path/to/cloud/folder> \
+    --camera-manifest <path/to/session_manifest.json> \
+    --init-camera-origin-in-lidar <x_forward_m> <y_left_m> --init-yaw-deg <yaw_deg> \
+    [--out-dir <path/to/output/folder>]
 ```
+
+The rectified intrinsics come from the capture session's `session_manifest.json`, and the rough rig geometry (ICP initial transform and sanity-check reference) comes from the command line; neither is hardcoded. Outputs default to `results/calibration/<session>/`.
 
 ## Assumptions and Environment Setup
 

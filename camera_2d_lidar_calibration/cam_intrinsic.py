@@ -33,8 +33,8 @@ def main():
     # Depending on your checkerboard layout, the parameters below willc change
     # TODO: Update the checkerboard parameters based on your own printed out board
     checkerboard_width = 6
-    checkerboard_height = 4
-    checkerboard_size = 0.037
+    checkerboard_height = 3
+    checkerboard_size = 0.050
     objp = np.zeros((checkerboard_width*checkerboard_height, 3), np.float32)
     objp[:, :2] = np.mgrid[0:checkerboard_width, 0:checkerboard_height].T.reshape(-1, 2) * checkerboard_size
 
@@ -64,14 +64,6 @@ def main():
 
     print(mtx)
     print(dist)
-
-# Example Intrinsic: 
-# [[519.26845842   0.         331.11197675]
-#  [  0.         518.89359517 229.43433605]
-#  [  0.           0.           1.        ]]
-# Example Distortion: 
-# [[ 0.11418155  0.19343114 -0.00268067  0.00371577 -1.09539701]]
-
 
 if __name__ == '__main__':
     main()

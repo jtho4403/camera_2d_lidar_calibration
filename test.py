@@ -1,3 +1,5 @@
+import sys
+
 import cv2
 import numpy as np
 
@@ -36,12 +38,13 @@ def extract_checkerboard_corners(image_path, pattern_size):
         return img, None
 
 # --- Configuration ---
-# Replace with your PNG file path
-image_file = 'data/images/left_pose_01.png' 
+# PNG file path, passed on the command line
+image_file = sys.argv[1]
 
 # The inner vertices count (Width, Height). 
 # Example: If your board has 9x9 squares, the internal corners are 8x8.
-grid_size = (6, 4) 
+# Must match checkerboard_width/_height in cam_intrinsic.py and cam_lidar_2d_icp.py.
+grid_size = (6, 3) 
 
 # --- Execution ---
 annotated_image, detected_corners = extract_checkerboard_corners(image_file, grid_size)

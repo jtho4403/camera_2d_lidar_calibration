@@ -53,12 +53,13 @@ def main():
     )
     parser.add_argument(
         "--input-root",
-        default="data/raw_lasers/extracted_pcd",
-        help="Root containing pose_01, pose_02, ... folders.",
+        required=True,
+        help="Root containing one folder of extracted PCDs per pose, "
+             "e.g. data/<session>/extracted_pcd.",
     )
     parser.add_argument(
         "--output-dir",
-        default="data/lidar_candidate_plots",
+        required=True,
         help="Directory where diagnostic plots will be saved.",
     )
     parser.add_argument(
@@ -81,9 +82,9 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    pose_dirs = sorted([p for p in input_root.glob("pose_*") if p.is_dir()])
+    pose_dirs = sorted([p for p in input_root.iterdir() if p.is_dir()])
     if not pose_dirs:
-        raise FileNotFoundError(f"No pose_* folders found in {input_root.resolve()}")
+        raise FileNotFoundError(f"No pose folders found in {input_root.resolve()}")
 
     print("=" * 80)
     print("LiDAR candidate PCD diagnostic plotting")

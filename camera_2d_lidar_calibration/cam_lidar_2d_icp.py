@@ -60,6 +60,39 @@ def load_clouds_from_folder(folder):
             clouds.append(pcd)
     return clouds
 
+def load_rectified_left_intrinsics(manifest_path):
+    """
+    Load the ZED SDK rectified LEFT-camera intrinsics from a capture
+    session's session_manifest.json (calibration.rectified.left).
+
+    The rectified K is SDK-version and resolution dependent, so it is read
+    per capture session instead of being hardcoded. Non-zero rectified
+    distortion means the frames are not rectified, which is a hard error.
+
+    Returns (K 3x3, dist 1x5 zeros, (width, height)).
+    """
+    with open(manifest_path) as f:
+        manifest = json.load(f)
+
+    left = manifest["calibration"]["rectified"]["left"]
+
+    if any(float(d) != 0.0 for d in left["disto"]):
+        raise ValueError(
+            f"{manifest_path}: calibration.rectified.left.disto is non-zero; "
+            "the frames are not rectified."
+        )
+
+    camera_k = np.array([
+        [left["fx"], 0.0, left["cx"]],
+        [0.0, left["fy"], left["cy"]],
+        [0.0, 0.0, 1.0],
+    ], dtype=np.float64)
+    camera_dist = np.zeros((1, 5), dtype=np.float64)
+    image_wh = tuple(int(v) for v in left["image_size"])
+
+    return camera_k, camera_dist, image_wh
+
+
 def draw(img, corners, imgpts):
     # Draw a 3D axis at the OpenCV origin of a checkerboard, for introspection
     corner = tuple(corners[0].ravel().astype("int32"))
@@ -880,6 +913,13 @@ def run_staged_icp(
     return total_tf, working_lines, stage_results
 
 
+def wrap_angle_deg(angle_deg: float) -> float:
+    """
+    Wrap an angle difference to [-180, 180) degrees.
+    """
+    return float((angle_deg + 180.0) % 360.0 - 180.0)
+
+
 def rigid_transform_summary(tf: np.ndarray) -> dict:
     """
     Summarise a 2D rigid transform.
@@ -909,25 +949,21 @@ def rigid_transform_summary(tf: np.ndarray) -> dict:
 
 def validate_against_manual_rig_geometry(
     estimated_tf: np.ndarray,
+    measured_camera_origin_lidar: np.ndarray,
+    measured_yaw_deg: float,
 ) -> dict:
     """
-    Compare the calibrated transform against rough manual mounting
-    measurements.
-
-    Manual geometry:
-      camera centre in LiDAR frame:
-        x forward = +0.11 m
-        y left    = +0.06 m
-      yaw = 0 deg
+    Compare the calibrated transform against the rough manual mounting
+    measurement supplied on the command line (camera centre in the LiDAR
+    frame, x forward / y left, and relative yaw).
 
     This is only a sanity check because housing measurements are not
     measurements of the exact optical/reference origins.
     """
-    measured_camera_origin_lidar = np.array(
-        [0.11, 0.06],
+    measured_camera_origin_lidar = np.asarray(
+        measured_camera_origin_lidar,
         dtype=np.float64,
     )
-    measured_yaw_deg = 0.0
 
     transform_summary = rigid_transform_summary(estimated_tf)
 
@@ -944,7 +980,7 @@ def validate_against_manual_rig_geometry(
         - measured_camera_origin_lidar
     )
     position_error_m = float(np.linalg.norm(position_error_vector))
-    yaw_error_deg = float(
+    yaw_error_deg = wrap_angle_deg(
         transform_summary["yaw_deg"] - measured_yaw_deg
     )
 
@@ -963,9 +999,8 @@ def validate_against_manual_rig_geometry(
             "are not exact sensor optical-origin measurements."
         ),
         "measured_camera_origin_in_lidar_m": {
-            "x_forward": 0.11,
-            "y_left": 0.06,
-            "z_down": -0.045,
+            "x_forward": float(measured_camera_origin_lidar[0]),
+            "y_left": float(measured_camera_origin_lidar[1]),
         },
         "measured_yaw_deg": measured_yaw_deg,
         "estimated_transform_summary": transform_summary,
@@ -1025,84 +1060,6 @@ def validate_against_manual_rig_geometry(
     print("=" * 80)
 
     return result
-
-
-def build_nominal_pose_geometry() -> list[dict]:
-    """
-    Record the approximate intended acquisition geometry.
-
-    These values document experiment design; they are not strict surveyed
-    ground truth and are not used to force the calibration result.
-    """
-    near_perpendicular = 0.8
-    far_perpendicular = 1.2
-    lateral_offset = 0.5
-
-    near_slant = math.hypot(near_perpendicular, lateral_offset)
-    far_slant = math.hypot(far_perpendicular, lateral_offset)
-
-    near_yaw = math.degrees(
-        math.atan2(lateral_offset, near_perpendicular)
-    )
-    far_yaw = math.degrees(
-        math.atan2(lateral_offset, far_perpendicular)
-    )
-
-    return [
-        {
-            "pose": "pose_01",
-            "type": "square_on",
-            "perpendicular_distance_m": 0.8,
-            "lateral_offset_m": 0.0,
-            "nominal_absolute_yaw_deg": 0.0,
-        },
-        {
-            "pose": "pose_02",
-            "type": "square_on",
-            "perpendicular_distance_m": 1.2,
-            "lateral_offset_m": 0.0,
-            "nominal_absolute_yaw_deg": 0.0,
-        },
-        {
-            "pose": "pose_03",
-            "type": "square_on",
-            "perpendicular_distance_m": 1.6,
-            "lateral_offset_m": 0.0,
-            "nominal_absolute_yaw_deg": 0.0,
-        },
-        {
-            "pose": "pose_04",
-            "type": "left_offset_angled_right",
-            "perpendicular_distance_m": near_perpendicular,
-            "lateral_offset_m": 0.5,
-            "slant_distance_m": float(near_slant),
-            "nominal_absolute_yaw_deg": float(near_yaw),
-        },
-        {
-            "pose": "pose_05",
-            "type": "right_offset_angled_left",
-            "perpendicular_distance_m": near_perpendicular,
-            "lateral_offset_m": -0.5,
-            "slant_distance_m": float(near_slant),
-            "nominal_absolute_yaw_deg": float(near_yaw),
-        },
-        {
-            "pose": "pose_06",
-            "type": "left_offset_angled_right",
-            "perpendicular_distance_m": far_perpendicular,
-            "lateral_offset_m": 0.5,
-            "slant_distance_m": float(far_slant),
-            "nominal_absolute_yaw_deg": float(far_yaw),
-        },
-        {
-            "pose": "pose_07",
-            "type": "right_offset_angled_left",
-            "perpendicular_distance_m": far_perpendicular,
-            "lateral_offset_m": -0.5,
-            "slant_distance_m": float(far_slant),
-            "nominal_absolute_yaw_deg": float(far_yaw),
-        },
-    ]
 
 
 def run_threshold_sensitivity(
@@ -1182,7 +1139,7 @@ def run_threshold_sensitivity(
                 "translation_difference_magnitude_m": float(
                     np.linalg.norm(translation_difference)
                 ),
-                "yaw_difference_deg": float(
+                "yaw_difference_deg": wrap_angle_deg(
                     summary["yaw_deg"]
                     - reference_summary["yaw_deg"]
                 ),
@@ -1440,10 +1397,47 @@ def main():
   parser = argparse.ArgumentParser(description="Calibrate image and laser extrinsics from a collection of checkerboard images and laser scans.")
   parser.add_argument("image_dir", help="Image directory.")
   parser.add_argument("laser_dir", help="Laser directory.")
+  parser.add_argument(
+      "--camera-manifest",
+      required=True,
+      help="Capture session's session_manifest.json; the rectified LEFT "
+           "intrinsics (calibration.rectified.left) are read from it.",
+  )
+  parser.add_argument(
+      "--init-camera-origin-in-lidar",
+      nargs=2,
+      type=float,
+      required=True,
+      metavar=("X_FORWARD_M", "Y_LEFT_M"),
+      help="Rough manual measurement of the camera centre in the LiDAR "
+           "frame. Used as the ICP initial transform and as the rig "
+           "sanity-check reference.",
+  )
+  parser.add_argument(
+      "--init-yaw-deg",
+      type=float,
+      required=True,
+      help="Rough relative yaw of the LiDAR frame to the camera robot "
+           "frame, in degrees. Used with --init-camera-origin-in-lidar.",
+  )
+  parser.add_argument(
+      "--out-dir",
+      default=None,
+      help="Output directory. Defaults to results/calibration/<session>, "
+           "where <session> is the parent folder name of image_dir.",
+  )
   args = parser.parse_args()
 
   image_dir = args.image_dir
   laser_dir = args.laser_dir
+
+  out_dir = Path(
+      args.out_dir
+      if args.out_dir is not None
+      else Path("results") / "calibration" / Path(image_dir).resolve().parent.name
+  )
+  out_dir.mkdir(parents=True, exist_ok=True)
+  print("Writing outputs to: " + str(out_dir))
 
   # Load images and pcb clouds from file, after they are extracted from a rosbag and selected for calibration
   # They have to have one to one correspondences - that is usually true when they are ordered in each folder correctly
@@ -1453,28 +1447,34 @@ def main():
 
   assert len(images) == len(lasers), "Images and lasers length mismatch!"
 
-  # ZED 2i left camera intrinsics from ZED SDK.
-  # Resolution: HD720, rectified LEFT image stream, 1280x720.
-  # Serial number: 32747601.
-  # Distortion is zero because ZED SDK LEFT images are rectified.
-  camera_k = np.array([
-      [522.00367955, 0.0, 636.71609061],
-      [0.0, 522.00367955, 355.69182042],
-      [0.0, 0.0, 1.0]
-  ], dtype=np.float64)
-
-  camera_dist = np.zeros((1, 5), dtype=np.float64)
+  # Rectified LEFT intrinsics for this capture session, from the ZED SDK.
+  # Distortion is zero because ZED SDK rectified images are used.
+  camera_k, camera_dist, expected_image_wh = load_rectified_left_intrinsics(
+      args.camera_manifest
+  )
+  print("Rectified LEFT intrinsics from " + args.camera_manifest + ":")
+  print(camera_k)
 
   # termination criteria, for aligning checkerboard corners onto an image
   criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
   # Checkerboard shape, example: 7*10 in checkerboard blocks, 20 mm in checkerboard block size
   # TODO: Change the checkerboard parameters into those that match with the actual board you are using
-  checkerboard_height = 4
+  checkerboard_height = 3
   checkerboard_width = 6 
-  checkerboard_size = 0.037
+  checkerboard_size = 0.050
   checkerboard_points = np.zeros((checkerboard_width*checkerboard_height, 3), np.float32)
   checkerboard_points[:, :2] = np.mgrid[0:checkerboard_width, 0:checkerboard_height].T.reshape(-1,2)*checkerboard_size
+
+  # Extent of the camera-derived line along the board X axis, measured from
+  # the first inner corner. The printed pattern spans
+  # [-checkerboard_size, checkerboard_width * checkerboard_size]; the margin
+  # must exceed the board's white border so every LiDAR return on the board
+  # has a line point beside it (a line shorter than the board drags the
+  # outermost returns toward the line endpoint during point-to-point ICP).
+  camera_line_margin = 0.10
+  camera_line_start = -checkerboard_size - camera_line_margin
+  camera_line_end = checkerboard_width * checkerboard_size + camera_line_margin
 
   # A predefined 3D axis for visualisation, axis length 10 cm
   axis = np.float32([[0.1,0,0], [0,0.1,0], [0,0,0.1]]).reshape(-1,3)
@@ -1499,10 +1499,11 @@ def main():
     # The attempt to extract a straight line on the checkerboard from the camera view will therefore be affected
     h, w = this_image.shape[:2]
 
-    if (w, h) != (1280, 720):
+    if (w, h) != expected_image_wh:
       raise ValueError(
-        f"Expected ZED HD720 images with size 1280x720, but got {w}x{h}. "
-        "Use images captured from the same ZED SDK HD720 LEFT stream used for these intrinsics."
+        f"Expected images of size {expected_image_wh[0]}x{expected_image_wh[1]} "
+        f"(from {args.camera_manifest}), but got {w}x{h}. "
+        "Use rectified LEFT images from the same capture session as the manifest."
       )
 
     # For repository smoke test/example data, avoid applying possibly mismatched
@@ -1538,7 +1539,10 @@ def main():
 
       # Visualisation - Interactive and extract horizontal line
       # This is where a horizontal line is actually estimated based on the checkerboard pose
-      visualise_camera_interface = ImageVisInterface(rvecs, tvecs, undistorted_image, camera_points)
+      visualise_camera_interface = ImageVisInterface(
+          rvecs, tvecs, undistorted_image, camera_points,
+          line_start=camera_line_start, line_end=camera_line_end,
+      )
       confirmed, camera_points = visualise_camera_interface.run()
       if confirmed == False:
         print("Something wrong with this image?")
@@ -1578,7 +1582,7 @@ def main():
     correspondence_payload[f"pose_{pose_index:02d}_rvec"] = pose_rvecs[pose_index]
     correspondence_payload[f"pose_{pose_index:02d}_tvec"] = pose_tvecs[pose_index]
 
-  np.savez("calibration_correspondences.npz", **correspondence_payload)
+  np.savez(out_dir / "calibration_correspondences.npz", **correspondence_payload)
   print("Saved calibration_correspondences.npz")
 
   # Introspection - are the two sets of points, camera_points and laser_points, looking reasonable with each other?
@@ -1592,7 +1596,7 @@ def main():
   ax.set_ylabel('y')
   ax.set_title('Checkerboard in Image (Green) and LiDAR (Blue)')
   ax.set_aspect('equal', adjustable='box')
-  fig.savefig("checkerboard_lidar_pre_alignment.png", dpi=200, bbox_inches="tight")
+  fig.savefig(out_dir / "checkerboard_lidar_pre_alignment.png", dpi=200, bbox_inches="tight")
   plt.close(fig)
 
   print("Saved checkerboard_lidar_pre_alignment.png")
@@ -1601,22 +1605,26 @@ def main():
   # Measurement-derived initial LiDAR-to-camera estimate
   # ------------------------------------------------------------------
   #
-  # Manual camera centre position expressed in the LiDAR frame:
-  #   x forward = +0.11 m
-  #   y left    = +0.06 m
+  # Rough manual camera centre position expressed in the LiDAR frame
+  # (x forward, y left) and relative yaw, from the command line.
   #
   # For:
   #   p_camera = R_lidar_to_camera @ p_lidar + t_lidar_to_camera
   #
-  # and approximately zero relative yaw:
+  # the camera origin in the LiDAR frame is -R^T t, so:
   #   t_lidar_to_camera = -R @ camera_origin_in_lidar
   #
   measured_camera_origin_in_lidar = np.array(
-      [0.11, 0.06],
+      args.init_camera_origin_in_lidar,
       dtype=np.float64,
   )
+  measured_yaw_deg = args.init_yaw_deg
 
-  initial_rotation = np.eye(2, dtype=np.float64)
+  initial_yaw_rad = math.radians(measured_yaw_deg)
+  initial_rotation = np.array([
+      [math.cos(initial_yaw_rad), -math.sin(initial_yaw_rad)],
+      [math.sin(initial_yaw_rad), math.cos(initial_yaw_rad)],
+  ], dtype=np.float64)
   initial_translation = (
       -initial_rotation @ measured_camera_origin_in_lidar
   )
@@ -1687,7 +1695,7 @@ def main():
   )
 
   save_residual_summary_csv(
-      "calibration_residual_summary.csv",
+      out_dir / "calibration_residual_summary.csv",
       residual_results,
   )
   print("Saved calibration_residual_summary.csv")
@@ -1696,33 +1704,12 @@ def main():
   # Physical mounting sanity check
   # ------------------------------------------------------------------
   physical_geometry_validation = (
-      validate_against_manual_rig_geometry(tf_total)
+      validate_against_manual_rig_geometry(
+          tf_total,
+          measured_camera_origin_in_lidar,
+          measured_yaw_deg,
+      )
   )
-
-  nominal_pose_geometry = build_nominal_pose_geometry()
-
-  print()
-  print("=" * 80)
-  print("NOMINAL ACQUISITION GEOMETRY")
-  print("=" * 80)
-
-  for pose in nominal_pose_geometry:
-      if pose["type"] == "square_on":
-          print(
-              f"{pose['pose']}: square-on, "
-              f"perpendicular distance "
-              f"{pose['perpendicular_distance_m']:.3f} m"
-          )
-      else:
-          print(
-              f"{pose['pose']}: {pose['type']}, "
-              f"perpendicular={pose['perpendicular_distance_m']:.3f} m, "
-              f"lateral={pose['lateral_offset_m']:+.3f} m, "
-              f"slant={pose['slant_distance_m']:.3f} m, "
-              f"|yaw|={pose['nominal_absolute_yaw_deg']:.2f} deg"
-          )
-
-  print("=" * 80)
 
   # ------------------------------------------------------------------
   # Independent fixed-threshold sensitivity test
@@ -1751,10 +1738,19 @@ def main():
 
       "camera_intrinsics": camera_k.tolist(),
       "camera_distortion": camera_dist.tolist(),
+      "camera_intrinsics_source": str(args.camera_manifest),
+      "image_size_wh": list(expected_image_wh),
 
       "checkerboard_width_inner_corners": checkerboard_width,
       "checkerboard_height_inner_corners": checkerboard_height,
       "checkerboard_square_size_m": checkerboard_size,
+      "camera_line_extent_along_board_x_m": [
+          camera_line_start,
+          camera_line_end,
+      ],
+
+      "image_dir": str(image_dir),
+      "laser_dir": str(laser_dir),
 
       "image_count": len(images),
       "laser_count": len(lasers),
@@ -1762,11 +1758,10 @@ def main():
       "initial_transform": {
           "source": "rough_manual_rig_measurement",
           "manual_camera_origin_in_lidar_m": {
-              "x_forward": 0.11,
-              "y_left": 0.06,
-              "z_down": -0.045,
+              "x_forward": float(measured_camera_origin_in_lidar[0]),
+              "y_left": float(measured_camera_origin_in_lidar[1]),
           },
-          "manual_relative_yaw_deg": 0.0,
+          "manual_relative_yaw_deg": measured_yaw_deg,
           "transform_matrix_3x3": initial_tf.tolist(),
       },
 
@@ -1783,14 +1778,13 @@ def main():
           physical_geometry_validation
       ),
 
-      "nominal_pose_geometry": nominal_pose_geometry,
-
       "threshold_sensitivity": (
           threshold_sensitivity_results
       ),
 
       "notes": (
-          "ZED 2i HD720 rectified left image stream. "
+          "Rectified left image stream; intrinsics are the ZED SDK "
+          "rectified left values from camera_intrinsics_source. "
           "Distortion coefficients are zero for the rectified SDK "
           "output. ICP nearest-neighbour searches are isolated per "
           "pose. The primary reported validation residual is the "
@@ -1798,14 +1792,14 @@ def main():
           "the corresponding infinite camera-derived TLS line. "
           "Nearest sampled camera-segment distances are retained as "
           "a secondary diagnostic for endpoint and sampling effects. "
-          "Manual rig measurements and nominal acquisition poses are "
-          "diagnostic references rather than surveyed ground truth."
+          "Manual rig measurements are diagnostic references rather "
+          "than surveyed ground truth."
       ),
   }
 
-  np.save("lidar_to_camera_2d.npy", tf_total)
+  np.save(out_dir / "lidar_to_camera_2d.npy", tf_total)
 
-  with open("calibration_result.json", "w") as f:
+  with open(out_dir / "calibration_result.json", "w") as f:
       json.dump(result_payload, f, indent=2)
 
   print("Saved lidar_to_camera_2d.npy")
@@ -1827,7 +1821,7 @@ def main():
   ax.set_ylabel('y')
   ax.set_title('Detected Wall - Aligned')
   ax.set_aspect('equal', adjustable='box')
-  fig.savefig("aligned_point_clouds.png", dpi=200, bbox_inches="tight")
+  fig.savefig(out_dir / "aligned_point_clouds.png", dpi=200, bbox_inches="tight")
   plt.close(fig)
 
   print("Saved aligned_point_clouds.png")

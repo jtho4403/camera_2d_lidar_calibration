@@ -136,7 +136,7 @@ class SelectPointsInterface:
 class ImageVisInterface:
   # Class for an interface to visualise images and checkerboard
   # Also where we estimate the line in the camera frame corresponding to the checkerboard using its pose
-  def __init__(self, rotation_rod, translation, camera_image, camera_points):
+  def __init__(self, rotation_rod, translation, camera_image, camera_points, line_start, line_end):
     # GUI
     self.root = tk.Tk()
     self.root.title("Camera 2D LiDAR Calibration - Camera View")
@@ -163,6 +163,8 @@ class ImageVisInterface:
     self.rotation_rod = rotation_rod.copy() # rotation of the camera pose in broad frame - Rodrigues form
     self.translation = translation.copy() # translation of the camera pose in broad frame
     self.camera_points = camera_points.copy() # extracted points, accumulated in every call of this class
+    self.line_start = line_start # extent of the extracted line along the board X axis, from the board origin, in metres
+    self.line_end = line_end
 
     self.add_figure()
 
@@ -214,12 +216,11 @@ class ImageVisInterface:
     # print(tf_robot_board_to_robot)
 
     # Let's extract/compute a line that goes from the board's origin
-    # along the positive direction of the y axis for 30 cm, and negative for 10 cm
+    # along the board X axis from line_start to line_end (set by the caller from the board geometry)
     # spacing 0.5 cm
-    # This might differ with your board layout, but because we are doing line fitting, so wall length is agnostic
-    # It will help with ICP though - more points to fit
-    line_end = 0.3
-    line_start = -0.1
+    # The line must cover every LiDAR return on the target, otherwise ICP pulls the outermost returns toward the line ends
+    line_end = self.line_end
+    line_start = self.line_start
     line_spacing = 0.005
     board_origin = (tf_robot_board_to_robot @ (np.array([0,0,0,1]).reshape(4,1)))[:3,:]
     
