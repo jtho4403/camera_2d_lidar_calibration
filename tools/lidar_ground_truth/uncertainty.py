@@ -15,6 +15,7 @@ model, and is pushed through projection.project_scan.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import io
 import json
 import math
@@ -127,8 +128,12 @@ def load_or_build_ensemble(
     seed: int,
 ) -> np.ndarray:
     """Reuse a cached ensemble only if it was built from the same
-    correspondences file with the same settings."""
-    key = {"correspondences": str(Path(correspondences_path).resolve()), "resamples": resamples, "seed": seed}
+    correspondences file *contents* (not just the same path -- a re-solve
+    into the same --out-dir overwrites calibration_correspondences.npz in
+    place, so a path-only key would give a false cache hit) with the same
+    settings."""
+    digest = hashlib.sha256(Path(correspondences_path).read_bytes()).hexdigest()
+    key = {"correspondences_sha256": digest, "resamples": resamples, "seed": seed}
     if cache_path.is_file():
         cached = np.load(cache_path, allow_pickle=False)
         if json.loads(str(cached["key"])) == key:

@@ -24,6 +24,7 @@ uncertainty_source.
 Run from the repository root:
     python tools/lidar_ground_truth/export_scene.py \\
         --session data/<session> \\
+        --camera-manifest data/<session>/captures/<scene>/session_manifest.json \\  # scene-nested sessions only
         --transform results/calibration/<run>/lidar_to_camera_2d.npy \\
         --calibration-result results/calibration/<run>/calibration_result.json \\
         --correspondences results/calibration/<run>/calibration_correspondences.npz \\
@@ -64,6 +65,45 @@ CSV_FIELDS = [
 ]
 
 
+def find_capture_metadata_dir(captures_root: Path, capture_id: str) -> Path:
+    """Locate <capture_id>'s metadata dir under captures_root, whether the
+    layout is flat (captures/<ID>/) or scene-nested (captures/<scene>/<ID>/,
+    e.g. data_2026-09-24's captures/scene_A/A01/).
+    """
+    matches = sorted(captures_root.glob(f"**/{capture_id}/{capture_id}_metadata.json"))
+    if not matches:
+        raise FileNotFoundError(f"No {capture_id}_metadata.json found under {captures_root}")
+    if len(matches) > 1:
+        raise ValueError(f"Multiple {capture_id}_metadata.json found under {captures_root}: {matches}")
+    return matches[0].parent
+
+
+def scene_group(metadata_dir: Path, captures_root: Path) -> str | None:
+    """The capture's scene-group directory name (e.g. "scene_A"), or None
+    for a flat layout where the capture dir is a direct child of captures/.
+    """
+    parts = metadata_dir.relative_to(captures_root).parts
+    return parts[0] if len(parts) > 1 else None
+
+
+def resolve_scene_name(metadata: dict, metadata_dir: Path, captures_root: Path) -> str:
+    """The capture's scene name for grouping.
+
+    Prefers the scene-group directory name over metadata['scene'] when the
+    session is scene-nested: data_2026-09-24's capture metadata has
+    "scene": "calibration" hardcoded on *every* capture regardless of which
+    of scene_A/scene_B/scene_C it actually belongs to (a capture-side bug,
+    confirmed by inspecting the raw files -- not something to silently
+    "fix" by rewriting captured data). The directory layout is the
+    unambiguous signal: one session_manifest.json per scene, so the
+    scene-group directory a capture lives under is reliable even when the
+    field inside its metadata isn't. Flat-layout sessions have no such
+    grouping to fall back on, so metadata['scene'] is trusted there.
+    """
+    group = scene_group(metadata_dir, captures_root)
+    return group if group is not None else metadata["scene"]
+
+
 def sha256(path: str | Path) -> str:
     digest = hashlib.sha256()
     with open(path, "rb") as f:
@@ -90,6 +130,17 @@ def overlay_png(image_path: Path, u, v, depth, title: str, out_path: Path) -> No
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--session", required=True, help="data/<session> with captures/, images/, lasers/, staging_manifest.json")
+    parser.add_argument(
+        "--camera-manifest",
+        default=None,
+        help=(
+            "session_manifest.json with the rectified K (PLAN.md Sec 4.3). Default: "
+            "<session>/captures/session_manifest.json (flat-layout sessions). A "
+            "scene-nested session (e.g. data_2026-09-24) has one manifest per scene "
+            "(<session>/captures/<scene>/session_manifest.json) and must pass this "
+            "explicitly."
+        ),
+    )
     parser.add_argument("--capture-ids", nargs="*", default=None, help="default: every staged capture")
     parser.add_argument("--transform", required=True)
     parser.add_argument("--calibration-result", required=True)
@@ -102,7 +153,7 @@ def main() -> None:
     args = parser.parse_args()
 
     session = Path(args.session)
-    manifest_path = session / "captures" / "session_manifest.json"
+    manifest_path = Path(args.camera_manifest) if args.camera_manifest else session / "captures" / "session_manifest.json"
     staging_path = session / "staging_manifest.json"
     out_dir = Path(args.out_dir)
     (out_dir / "overlays").mkdir(parents=True, exist_ok=True)
@@ -131,10 +182,12 @@ def main() -> None:
             "hold_out_leave_one_pose_out": validation_json["hold_out_leave_one_pose_out"],
         }
 
+    captures_root = session / "captures"
     scenes: dict[str, list[dict]] = {}
     for capture_id in capture_ids:
-        metadata = json.loads((session / "captures" / capture_id / f"{capture_id}_metadata.json").read_text())
-        scene_id = f"{session.name}_{metadata['scene']}"
+        metadata_dir = find_capture_metadata_dir(captures_root, capture_id)
+        metadata = json.loads((metadata_dir / f"{capture_id}_metadata.json").read_text())
+        scene_id = f"{session.name}_{resolve_scene_name(metadata, metadata_dir, captures_root)}"
         image_path = session / "images" / f"{capture_id}_left.png"
         scan_path = session / "lasers" / f"{capture_id}.pcd"
 

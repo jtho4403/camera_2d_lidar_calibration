@@ -1,7 +1,7 @@
 """Stage a capture session for cam_lidar_2d_icp.py.
 
-For every capture <ID> in <session>/captures/ this writes, pairing by the
-shared capture ID:
+For every capture <ID> found under <session>/captures/ this writes, pairing
+by the shared capture ID:
 
   <session>/images/<ID>_left.png  -- copy of the rectified left snapshot
   <session>/lasers/<ID>.pcd       -- per-bearing median of the LiDAR scans
@@ -16,6 +16,17 @@ cloud_<epoch ns>.pcd) falls inside [first_frame_ts_ns, last_frame_ts_ns] of
 its image. The scan's angular grid is fixed per revolution, so bearings are
 binned on that grid and a bin is kept only when it has a return in at least
 --min-return-fraction of the in-window scans.
+
+Capture dirs are found by recursively searching <session>/captures/ for any
+directory <D> containing <D>_metadata.json, so both a flat layout
+(captures/<ID>/) and a scene-nested layout (captures/<scene>/<ID>/, e.g.
+data_2026-09-24's captures/scene_A/A01/) work unmodified; the corresponding
+extracted_pcd/ location is derived from the same path, relative to
+captures/. Use --scenes to stage only the capture dirs whose immediate
+parent (the scene-group directory name, e.g. "scene_A") is in the given
+list -- capture IDs are assumed unique across scenes (they are, by prefix:
+A../B../C..), so images/ and lasers/ accumulate across separate invocations
+and staging_manifest.json is merged (keyed by capture_id), not overwritten.
 """
 from pathlib import Path
 import argparse
@@ -23,6 +34,28 @@ import json
 import shutil
 
 import numpy as np
+
+
+def find_capture_dirs(captures_root: Path) -> list[Path]:
+    """Recursively find capture directories under captures_root.
+
+    A directory <D> is a capture dir iff it contains <D.name>_metadata.json.
+    Matches both captures/<ID>/ (flat) and captures/<scene>/<ID>/ (nested).
+    """
+    dirs = {
+        metadata_file.parent
+        for metadata_file in captures_root.rglob("*_metadata.json")
+        if metadata_file.name == f"{metadata_file.parent.name}_metadata.json"
+    }
+    return sorted(dirs)
+
+
+def scene_group(capture_dir: Path, captures_root: Path) -> str | None:
+    """The capture's scene-group directory name (e.g. "scene_A"), or None
+    for a flat layout where the capture dir is a direct child of captures/.
+    """
+    parts = capture_dir.relative_to(captures_root).parts
+    return parts[0] if len(parts) > 1 else None
 
 
 def read_ascii_pcd_xy(path: Path) -> np.ndarray:
@@ -108,7 +141,17 @@ def main():
     parser = argparse.ArgumentParser(
         description="Stage images/ and lasers/ for cam_lidar_2d_icp.py from a capture session."
     )
-    parser.add_argument("session", help="Session root, e.g. data/data_2026-09-23.")
+    parser.add_argument("session", help="Session root, e.g. data/data_2026-09-24.")
+    parser.add_argument(
+        "--scenes",
+        nargs="*",
+        default=None,
+        help=(
+            "Stage only captures under these scene-group directory names "
+            "(e.g. --scenes scene_A), for a scene-nested session. Default: "
+            "stage every capture dir found under captures/."
+        ),
+    )
     parser.add_argument(
         "--min-return-fraction",
         type=float,
@@ -118,30 +161,51 @@ def main():
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Replace existing files in images/ and lasers/.",
+        help="Replace an already-staged capture's image/laser/manifest entry.",
     )
     args = parser.parse_args()
 
     session = Path(args.session)
     image_dir = session / "images"
     laser_dir = session / "lasers"
+    captures_root = session / "captures"
+    image_dir.mkdir(parents=True, exist_ok=True)
+    laser_dir.mkdir(parents=True, exist_ok=True)
 
-    for out in (image_dir, laser_dir):
-        if out.exists() and any(out.iterdir()) and not args.overwrite:
-            raise FileExistsError(f"{out} is not empty; pass --overwrite to replace it.")
-        out.mkdir(parents=True, exist_ok=True)
+    capture_dirs = find_capture_dirs(captures_root)
+    if args.scenes is not None:
+        capture_dirs = [
+            d for d in capture_dirs if scene_group(d, captures_root) in args.scenes
+        ]
+        if not capture_dirs:
+            raise ValueError(f"--scenes {args.scenes} matched no capture dirs under {captures_root}")
 
-    capture_dirs = sorted(p for p in (session / "captures").iterdir() if p.is_dir())
+    staging_manifest_path = session / "staging_manifest.json"
+    if staging_manifest_path.exists():
+        manifest = json.loads(staging_manifest_path.read_text())
+        already_staged = {c["capture_id"]: c for c in manifest["captures"]}
+    else:
+        manifest = {
+            "session": str(session),
+            "laser_method": "per-bearing median of in-window scans",
+            "min_return_fraction": args.min_return_fraction,
+            "captures": [],
+        }
+        already_staged = {}
 
-    staged = []
     for capture_dir in capture_dirs:
         capture_id = capture_dir.name
+        if capture_id in already_staged and not args.overwrite:
+            print(f"{capture_id}: already staged, skipping (pass --overwrite to redo it).")
+            continue
+
         metadata = json.loads((capture_dir / f"{capture_id}_metadata.json").read_text())
         first_ns = int(metadata["timing"]["first_frame_ts_ns"])
         last_ns = int(metadata["timing"]["last_frame_ts_ns"])
 
+        extracted_pcd_dir = session / "extracted_pcd" / capture_dir.relative_to(captures_root)
         scan_files = [
-            p for p in sorted((session / "extracted_pcd" / capture_id).glob("*.pcd"))
+            p for p in sorted(extracted_pcd_dir.glob("*.pcd"))
             if first_ns <= scan_timestamp_ns(p) <= last_ns
         ]
         if not scan_files:
@@ -155,8 +219,9 @@ def main():
         shutil.copy2(capture_dir / f"{capture_id}_left.png", image_dir / f"{capture_id}_left.png")
         write_ascii_pcd_xy(laser_dir / f"{capture_id}.pcd", xy)
 
-        record = {
+        already_staged[capture_id] = {
             "capture_id": capture_id,
+            "scene_group": scene_group(capture_dir, captures_root),
             "image": str(image_dir / f"{capture_id}_left.png"),
             "image_source": str(capture_dir / f"{capture_id}_left.png"),
             "laser": str(laser_dir / f"{capture_id}.pcd"),
@@ -166,20 +231,14 @@ def main():
             "last_scan": scan_files[-1].name,
             **stats,
         }
-        staged.append(record)
         print(
             f"{capture_id}: {len(scan_files)} in-window scans -> {stats['bins_kept']} bearings, "
             f"median per-bearing std {stats['median_per_bearing_range_std_m'] * 1000:.2f} mm"
         )
 
-    manifest = {
-        "session": str(session),
-        "laser_method": "per-bearing median of in-window scans",
-        "min_return_fraction": args.min_return_fraction,
-        "captures": staged,
-    }
-    (session / "staging_manifest.json").write_text(json.dumps(manifest, indent=2))
-    print(f"Staged {len(staged)} captures; wrote {session / 'staging_manifest.json'}")
+    manifest["captures"] = [already_staged[k] for k in sorted(already_staged)]
+    staging_manifest_path.write_text(json.dumps(manifest, indent=2))
+    print(f"Staged {len(manifest['captures'])} captures total; wrote {staging_manifest_path}")
 
 
 if __name__ == "__main__":
