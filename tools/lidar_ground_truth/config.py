@@ -29,6 +29,15 @@ RANGE_MAX_M = 40.0
 # Guard against dividing by a near-zero/negative camera-frame depth.
 Z_MIN_M = 0.05
 
+# --- Declared depth-model operating range (EXPERIMENT_DESIGN_v3.md Sec 6) ---
+# Every depth-model engine's max-disparity setting (128 px FULL tier, 64 px
+# HALF tier) is built for this range; ground-truth points outside it are
+# excluded from the export (export_scene.py, filters.reject_outside_operating_range),
+# not merely flagged. Distinct from Z_MIN_M above, which is only a numerical
+# divide-by-zero guard inside project_scan and is not the declared range.
+OPERATING_RANGE_Z_MIN_M = 0.5
+OPERATING_RANGE_Z_MAX_M = 8.0
+
 # --- Occlusion / parallax filter (filters.py, PLAN.md Sec 6.3 item 3) ---
 # Reject LiDAR returns within this many bearing-order samples of a range
 # discontinuity |r[j+1] - r[j]| > threshold, and reject returns whose

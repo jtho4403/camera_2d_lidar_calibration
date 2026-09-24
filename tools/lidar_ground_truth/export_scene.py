@@ -194,7 +194,11 @@ def main() -> None:
         xy, n_total, n_valid = scan_io.load_valid_xy(scan_path)
         result = projection.project_scan(xy, T2, rig_cfg.delta_z_m, intrinsics.K, intrinsics.image_wh, z_min_m=config.Z_MIN_M)
         report = filters.apply_filters(xy, result.keep, result.u, result.depth_m)
-        keep = report.keep
+        in_operating_range = filters.reject_outside_operating_range(result.depth_m)
+        keep = report.keep & in_operating_range
+        filtered_out_counts = dict(report.rejected_counts)
+        filtered_out_counts["outside_operating_range_0.5_8m"] = int(np.count_nonzero(report.keep & ~in_operating_range))
+        filtered_out_counts["surviving"] = int(np.count_nonzero(keep))
 
         range_sigma_m = float(staged[capture_id]["median_per_bearing_range_std_m"])
         mc = uncertainty.monte_carlo_point_uncertainty(
@@ -243,7 +247,7 @@ def main() -> None:
                 "scan_method": "per-bearing median of in-window scans (staging_manifest.json)",
                 "n_total_returns": n_total,
                 "n_valid_returns": n_valid,
-                "filtered_out_counts": report.rejected_counts,
+                "filtered_out_counts": filtered_out_counts,
                 "n_ground_truth_points": len(rows),
                 "depth_range_m": [float(result.depth_m[keep].min()), float(result.depth_m[keep].max())] if rows else None,
                 "median_depth_std_m": float(np.median(mc["depth_std_m"])) if rows else None,
@@ -254,7 +258,7 @@ def main() -> None:
         })
         print(
             f"{capture_id} ({scene_id}): {len(rows)} ground-truth pixels "
-            f"(of {n_total} returns; {report.rejected_counts}), median depth std "
+            f"(of {n_total} returns; {filtered_out_counts}), median depth std "
             f"{scenes[scene_id][-1]['record']['median_depth_std_m'] * 1000:.2f} mm, "
             f"median row uncertainty {scenes[scene_id][-1]['record']['median_row_uncertainty_px']:.2f} px"
         )

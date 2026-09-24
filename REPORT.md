@@ -13,7 +13,8 @@ The camera–LiDAR extrinsic transform `T2` was solved from Scene A (24 checkerb
 0.6–1.5 m) using burst-mean-averaged images (150 frames per pose) and validated by
 leave-one-pose-out hold-out residuals, a 200-resample bootstrap, and an independent visual
 check on Scene B (off-board, out to ~5 m). Sparse LiDAR-referenced ground truth was exported
-for all three scenes: 20,397 points (Scene A), 4,245 points (Scene B), 8,427 points (Scene C).
+for all three scenes, filtered to the declared 0.5–8 m operating range (§7, §9): 19,629 points
+(Scene A), 4,245 points (Scene B), 7,983 points (Scene C).
 
 Four of five automated acceptance checks pass cleanly. The fifth — a statistically significant
 (3.6σ) residual bias that grows with either distance or elapsed capture time, the two being
@@ -169,12 +170,12 @@ actually spans gives:
 
 | Scene | Depth | Implied bias if linear (mm) | Stated point-wise uncertainty (mm) | Ratio |
 |---|---|---|---|---|
-| A | 3.88 m (median) | +39.5 | 8.0 | 4.9× |
-| A | 8.28 m (max) | +98.1 | 8.3 | 11.9× |
+| A | 3.88 m (median) | +39.5 | 8.7 | 4.5× |
+| A | 7.38 m (max, now capped at ≤8 m — §9) | +86.1 | 8.5 | 10.1× |
 | B | 3.55 m (median) | +35.1 | 7.4 | 4.7× |
 | B | 6.42 m (max) | +73.4 | 8.9 | 8.3× |
-| C | 2.35 m (median) | +19.2 | 6.0 | 3.2× |
-| C | 10.77 m (max) | +131.3 | 8.9 | 14.7× |
+| C | 2.29 m (median) | +18.3 | 7.0 | 2.6× |
+| C | 8.00 m (max, now capped at ≤8 m — §9) | +94.3 | 8.5 | 11.1× |
 
 This table is the central number for §8's scoping decision: **at the depths Scenes B and C
 actually cover, the possible unmodelled bias is several times larger than the stated per-point
@@ -218,22 +219,22 @@ generalises beyond the calibration board.
 |---|---|
 | ![A09](results/lidar_ground_truth/data_2026-09-24/export/overlays/A09_ground_truth.png) | ![C01](results/lidar_ground_truth/data_2026-09-24/export/overlays/C01_ground_truth.png) |
 
-### Table 4 — Export headline numbers
+### Table 4 — Export headline numbers (post range-filter, §9)
 
 | Metric | Scene A | Scene B | Scene C | Direction |
 |---|---|---|---|---|
-| Ground-truth points | 20,397 | 4,245 | 8,427 | ↑ more is generally better |
+| Ground-truth points | 19,629 | 4,245 | 7,983 | ↑ more is generally better |
 | Captures | 24 | 5 | 10 | — |
-| Points per capture (mean) | 850 | 849 | 843 | ↑ higher is better |
-| Depth range | 0.48–8.28 m | 1.05–6.42 m | 1.01–10.77 m | — |
-| Points outside declared [0.5, 8] m range | 768 (3.8%) | 0 (0%) | 444 (5.3%) | ↓ lower is better — **not currently filtered in the CSV, see §9** |
-| Vertical (row) coverage | 48.6 px | 19.7 px | 22.2 px | out of 720 px image height — see §9 |
+| Points per capture (mean) | 818 | 849 | 798 | ↑ higher is better |
+| Depth range | 0.50–7.38 m | 1.05–6.42 m | 1.01–8.00 m | now hard-capped to [0.5, 8] m |
+| Points excluded by the 0.5–8 m operating-range filter | 768 (1.1% of valid returns) | 0 (0%) | 444 (1.5% of valid returns) | filter now enforced — 0 points remain out of range in every scene |
+| Vertical (row) coverage | 46.3 px | 19.7 px | 21.4 px | out of 720 px image height — see §9 |
 | Horizontal (column) coverage | 0.2–1279.5 px | 0.3–1279.5 px | 0.9–1279.7 px | full-width in all scenes |
-| `depth_std_m` (stated, precision-only) — median / p95 | 5.55 / 11.07 mm | 4.10 / 11.11 mm | 4.03 / 9.09 mm | ↓ lower is better |
-| Points surviving occlusion/parallax filters | 29.1% | 28.7% | 29.0% | of all valid LiDAR returns; ~69% rejected for being outside camera FOV (structural, expected), <2% rejected by the actual quality filters |
+| `depth_std_m` (stated, precision-only) — median / p95 | 5.42 / 11.13 mm | 4.10 / 11.11 mm | 3.87 / 9.04 mm | ↓ lower is better |
+| Points surviving all filters (of all valid LiDAR returns) | 28.0% | 28.7% | 27.5% | ~69% rejected for being outside camera FOV (structural, expected), <2% by occlusion/parallax quality filters, 1.1–1.5% by the operating-range filter |
 
 **Structural limitation (expected, not new information)**: as understood going into this
-project, the ground truth is a thin horizontal strip (2.7–6.8% of frame height) since it comes
+project, the ground truth is a thin horizontal strip (2.7–6.4% of frame height) since it comes
 from a single 2D LiDAR scan plane — it supports evaluating depth accuracy along that strip, not
 full-frame.
 
@@ -262,11 +263,17 @@ explicitly, not as a footnote.
    self-calibration temporarily enabled). RPLIDAR S3 characterisation (pending, separate
    session) will bound the LiDAR-side contribution but, per §5.3's regression evidence, may not
    be the dominant cause.
-2. **Declared operating range (0.5–8 m) is not enforced or flagged in the exported CSV.**
-   `export_scene.py` only guards against `depth < 0.05 m` (a numerical safety floor, a different
-   constant from the declared range). 3.8% of Scene A and 5.3% of Scene C points currently sit
-   outside [0.5, 8] m with no flag. **Action before headline metrics are computed**: filter or
-   flag these explicitly.
+2. ~~Declared operating range (0.5–8 m) not enforced or flagged in the exported CSV.~~
+   **Resolved 2026-09-25**: `filters.reject_outside_operating_range` now excludes points outside
+   [0.5, 8] m from the export (`export_scene.py`, applied on top of the existing occlusion/parallax
+   filters; `config.OPERATING_RANGE_Z_MIN_M`/`OPERATING_RANGE_Z_MAX_M`, kept distinct from the
+   numerical `Z_MIN_M` divide-by-zero guard used inside `projection.project_scan`). Scoped to
+   `export_scene.py` only — `overlay_diagnostic.py`'s Phase 1 sanity checks (Figure 3, §6) still
+   inspect the whole scan including out-of-range background, deliberately, since restricting that
+   diagnostic's scope could hide real sign/frame-convention errors. Re-running the export dropped
+   768 points from Scene A and 444 from Scene C (§7's Table 4 reflects the corrected counts); Scene
+   B was unaffected (already fully in-range). This changed the exact figures in §5.4, §7 and the
+   executive summary above — all now reflect the post-filter export.
 3. **The `board_plane_validation` pass/fail status lives only in the scene-level summary JSON,
    not per-row in the exported CSV.** A consumer of just the CSV would not see §5's caveat.
    Consider surfacing it more prominently in any downstream accuracy-harness documentation.

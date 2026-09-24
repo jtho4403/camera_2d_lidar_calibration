@@ -100,6 +100,25 @@ def reject_depth_order_inconsistent_with_u_order(
     return keep
 
 
+def reject_outside_operating_range(
+    depth_m: np.ndarray,
+    z_min_m: float = config.OPERATING_RANGE_Z_MIN_M,
+    z_max_m: float = config.OPERATING_RANGE_Z_MAX_M,
+) -> np.ndarray:
+    """Reject points outside the declared depth-model operating range
+    (EXPERIMENT_DESIGN_v3.md Sec 6: Z_min=0.5 m, Z_max=8 m).
+
+    Not part of apply_filters below: that function's occlusion/parallax
+    filters are shared with overlay_diagnostic.py's Phase 1 sanity checks,
+    which deliberately inspect the whole scan including out-of-range
+    background to catch sign/frame-convention errors. Ground-truth export
+    (export_scene.py) is the one place this scope restriction belongs, so
+    callers apply it explicitly on top of apply_filters's result.
+    """
+    depth_m = np.asarray(depth_m, dtype=np.float64)
+    return (depth_m >= z_min_m) & (depth_m <= z_max_m)
+
+
 def reject_high_incidence_angle(*_args, **_kwargs):
     raise NotImplementedError(
         "High-incidence-angle rejection needs the RPLIDAR S3 accuracy-vs-"
