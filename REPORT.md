@@ -288,6 +288,179 @@ explicitly, not as a footnote.
 
 ---
 
+## 10. Addendum (2026-09-25): column-shift and point-cloud-extent investigation
+
+Triggered by visual inspection during supervisor review: across the exported overlays,
+projected LiDAR points don't always land exactly on object edges — a horizontal (column)
+misalignment, small on some poses/scenes, larger on others, more noticeable on yawed objects
+and at larger depths but without an obviously clean relationship. A second, separate question
+was raised from Figure 1: the aligned LiDAR points look visibly shorter in extent than the
+camera-derived line, for a target of supposedly fixed physical size. Both are addressed below
+with direct measurement and code inspection, not visual impression.
+
+### 10.1 The column shift: directly measured, not eyeballed
+
+For every LiDAR point in every Scene A pose, `T2` was applied and the result projected through
+the same `u = c_x − f_x·y_R/x_R` equation the pipeline uses; the same was done for the
+camera-derived board line; each LiDAR point was matched to its nearest camera-line point by
+Euclidean distance in the transformed plane — the identical rule `icp_2d.py`'s own
+`NearestNeighbors` correspondence step uses. The difference is a genuine pixel-column residual,
+computed from the underlying correspondence data, not read off a rendered image.
+
+**Per-pose mean shift ranges from −2.50 px to +3.65 px, with the sign flipping between poses**
+(e.g. A06 at 0.77 m: +3.65 px; A19 at 1.54 m: −0.12 px) — consistent with what was observed
+visually: sometimes small, sometimes larger, not a simple function of distance.
+
+### 10.2 The specific left-camera / optical-centre hypothesis: ruled out
+
+Checked directly in code, not assumed:
+
+- `cam_lidar_2d_icp.py::load_rectified_left_intrinsics` reads `K` from `session_manifest.json`'s
+  `calibration.rectified.left` block and forces distortion to zero (matching the manifest's own
+  zero-`disto` rectified guarantee).
+- `tools/lidar_ground_truth/calibration_io.py::load_intrinsics_from_manifest` reads `K` from the
+  **identical** `calibration.rectified.left` block.
+- `calibration_io.check_intrinsics_match_calibration()` runs before every projection, export, or
+  validation script and **raises `ValueError`** if the `K` used downstream doesn't exactly match
+  the `K` recorded in `calibration_result.json` at fit time. This assertion ran on every pipeline
+  execution in this project and never fired.
+
+Calibration and projection use the same left-camera rectified frame throughout, enforced by an
+assertion that would have stopped every downstream script immediately if it were otherwise —
+not just consistent by inspection.
+
+### 10.3 What correlates with it
+
+| Variable | corr. with signed shift | corr. with \|shift\| | corr. with within-pose scatter |
+|---|---|---|---|
+| Distance | +0.11 | −0.12 | — |
+| Elapsed session time | +0.10 | −0.04 | — |
+| Depth-residual bias (§5's finding, same poses) | +0.07 | — | — |
+| \|Board yaw\| (incidence angle) | +0.18 | +0.35 | **+0.45** |
+| PnP reprojection error (camera-side fit quality) | — | **+0.49** | — |
+| Points per pose (`n`) | — | −0.11 | — |
+
+### Table 5 — Hypotheses tested for the column shift
+
+| Candidate cause | Status | Evidence |
+|---|---|---|
+| Left camera / optical-centre inconsistency between pipelines | **Ruled out** | Identical `K` source in both stages; runtime assertion never fired (§10.2) |
+| Overlay rendering artefact (marker size) | **Partial, perceptual only** | Export markers render ~8 px diameter at the plotting dpi — comparable to the 1–4 px true shift, plausibly why it looks inconsistent by eye — but the effect is measured directly from correspondence coordinates, not from rendered pixels, so it is not purely a rendering illusion |
+| Sensor drift over the session | **Ruled out** | Correlation with elapsed time ≈ 0.10 (signed), −0.04 (magnitude) — the weakest of all tested variables |
+| Same phenomenon as §5's distance/time-correlated depth bias | **Ruled out** | Correlation between the two, same poses: +0.07 — independent effects |
+| Distance alone | **Ruled out** | Correlation ≈ 0.11 (signed), −0.12 (magnitude) |
+| LiDAR incidence-angle precision effect | **Partial, plausible** | `\|yaw\|` correlates more with *within-pose scatter* (0.45) than with the pose's average shift (0.35) — the signature of a precision effect, not a rigid bias, and physically consistent with known beam-footprint broadening at oblique incidence. Directly testable once the pending RPLIDAR S3 incidence-angle characterisation exists |
+| Camera-side PnP conditioning at oblique viewing | **Partial, plausible** | Reprojection error correlates with `\|yaw\|` (0.38) and is the single best predictor of the shift found (0.49) — oblique viewing measurably degrades the camera-side fit too, not just the LiDAR side |
+| Per-pose LiDAR range noise (burst spread, ~1.7 mm) | **Ruled out as sole cause** | Projects to well under 1 px at these distances/bearings — too small to explain multi-pixel shifts alone |
+| Human variability in interactive LiDAR point selection | **Open, leading candidate for the unexplained residual** | A06 and A21 have *low* yaw (9.8°, 8.2°) yet are among the largest shifts (3.65 px, 2.50 px) — outliers to both the yaw and reprojection-error stories. Each pose's "which points are on the board" selection was made independently by a person; inconsistent inclusion near the board's narrow white margins is a plausible, currently untested source of idiosyncratic per-pose noise |
+
+**No single tested variable explains the majority of the effect.** Board yaw and PnP
+reprojection quality are both real, partial, physically-grounded contributors; a meaningful
+residual remains unaccounted for, and manual point-selection variability is the most plausible
+remaining candidate, not yet tested.
+
+### 10.4 Is it already accounted for? Comparing against the exported uncertainty
+
+The exported ground truth already carries a per-point column uncertainty, `u_std_px`
+(bootstrap-`T2` + Monte Carlo propagated). Comparing the measured per-pose shift against each
+pose's own exported `u_std_px`:
+
+- **17 of 24 poses**: the measured `|mean shift|` sits *within* the pose's own stated
+  `u_std_px` (median 1.87 px, p95 3.22 px across Scene A).
+- **7 of 24 poses** (A01, A06, A08, A15, A20, A21, A23): the measured shift *exceeds* the stated
+  uncertainty, by up to ~2× (A06: 3.65 px measured vs. 1.84 px stated).
+
+So this is a materially different situation from §5's depth bias: `u_std_px` already captures
+*most* of this effect's typical magnitude (unlike `depth_std_m`, which by design carries zero
+contribution from §5's bias). It is not, however, fully covered — roughly a third of poses show
+a shift larger than what the uncertainty column claims, which is itself useful information: the
+column uncertainty is in the right ballpark but plausibly modest.
+
+### 10.5 The "LiDAR points look shorter" observation — correction and resolution
+
+**Correction**: an earlier verbal explanation cited the checkerboard as "~0.30 m wide," which is
+wrong — that figure was a mix-up with the physical panel's *height* (300 mm), not its width. The
+correct reference dimensions, as pointed out in review, are:
+
+| Boundary | Width |
+|---|---|
+| Inner-corner grid (`solvePnP`'s object points) | 0.25 m (6 corners × 5 gaps × 50 mm) |
+| Printed checkerboard pattern (7 squares) | 0.35 m — matches `EXPERIMENT_DESIGN_v3.md`'s stated 350 mm pattern width |
+| A3 print sheet | 0.42 m |
+| Physical MDF backing panel | 0.60 m × 0.30 m (width × height — the 300 mm figure is the panel's *height*, not width) |
+| Camera reference line (`camera_line_start` to `camera_line_end`) | **0.55 m** — printed pattern (0.35 m) + 0.10 m margin each side |
+
+**Does the correction change the conclusion? No.** The finding was never based on comparing to
+a specific board-width number — it came from reading `gui.py::board_line_points()` and
+`icp_2d.py::icp_per_line()` directly:
+
+- The camera line (0.55 m) is a fixed, densely-sampled (5 mm spacing) reference generated
+  independently of anything the LiDAR observed, deliberately sized larger than the printed
+  pattern specifically to prevent ICP from dragging edge returns toward the line's endpoint
+  (the reasoning is in the code's own comment).
+- `icp_per_line` never drops or truncates a point: every input LiDAR point, matched or not
+  within the distance threshold, is rigid-transformed and returned (`points_array =
+  np.vstack(points)`, unconditionally, every iteration).
+
+With the corrected figures, the camera line (0.55 m) actually sits *between* the printed pattern
+(0.35 m) and the full physical panel (0.60 m) — closer to the true target size than the original
+(wrong) 0.30 m comparison suggested, but the reference is still independent of, and generally
+larger than, whatever subset of points a human selected as "on the board" per pose (itself
+narrower still at oblique yaw, where the panel's apparent angular width shrinks). The "shorter"
+appearance remains fully explained by this margin design, not by any compression or chopping of
+LiDAR data.
+
+### 10.6 Solutions, workarounds, or accept as-is?
+
+Given §10.4's finding that the effect is mostly (not fully) within the ground truth's own
+stated column uncertainty, and given no single root cause is confirmed, four options were
+considered:
+
+| Option | What it addresses | Cost | Risk |
+|---|---|---|---|
+| **Accept as documented** (recommended for now) | Nothing new — relies on §10.4's finding that `u_std_px` already covers most of it | None | The ~30% of poses exceeding stated uncertainty stay unflagged at the per-point level |
+| Wait for RPLIDAR S3 incidence-angle characterisation | Directly bounds the LiDAR-side contribution (the strongest single physically-grounded lead, §10.3); enables implementing the already-stubbed `filters.reject_high_incidence_angle` | Already planned, no extra work | Camera-side PnP contribution and point-selection variability remain untouched even after S3 data lands |
+| Replace manual GUI point selection with an automated, consistent rule | Directly tests the leading *unexplained*-residual hypothesis (human variability) | Moderate — new selection logic, re-run on existing raw scans (no recapture needed) | See below |
+| Trim/re-verify selected points post hoc (drop outlier points from existing selections) | Superficially similar to the above | Low | **Not recommended as a first move** — see below |
+
+**On trimming/re-verifying the existing selections** (your question): tempting, but two real
+risks argue against doing this as the first step:
+
+1. **Circularity.** Any trimming rule chosen *after* looking at which points produce large
+   residuals is implicitly fitting the calibration to its own evaluation — the residuals would
+   improve because the disagreeing points were removed, not because the underlying measurement
+   got better. A principled rule (e.g., reject points beyond a fixed incidence-angle threshold,
+   decided from physics/S3 data, not from this session's residuals) avoids this; an
+   after-the-fact "drop what doesn't fit" rule does not.
+2. **Already tested against the wrong culprit.** Point *count* was checked directly
+   (`corr(n, |shift|) = −0.11`, §10.3 table) — poses with fewer points are not notably worse.
+   Trimming points without a principled criterion is therefore unlikely to help, and reduces the
+   constraint density ICP has to work with, which risks *widening* the already-tight bootstrap
+   `t_x`/`t_y`/yaw uncertainty (Table 3) for a return that isn't evidenced yet.
+
+**Replacing manual selection with an automated rule** is the more promising longer-term fix,
+precisely because it targets the one candidate (§10.3) that isn't yet ruled out or explained,
+and can be done against the *existing* raw LiDAR scans (`extracted_pcd/`) without a recapture —
+but it's real engineering work (building and validating a selection rule), not a quick fix, and
+its payoff is unproven until tried. Recommendation: **leave the export as-is for now** (§10.4
+shows the risk is mostly, not entirely, already reflected in the stated uncertainty), revisit
+once the S3 incidence-angle data lands (it may explain most of the yaw-correlated component
+directly), and treat automated point selection as a future improvement to prioritise only if the
+S3 data doesn't close the gap.
+
+### 10.7 Updates to §9's outstanding items
+
+- Item 1 (distance/time-correlated depth bias) is **unaffected** by this addendum — confirmed
+  independent (§10.3, `corr = +0.07`), not the same issue.
+- New: the RPLIDAR S3 characterisation (already pending per item 1) is now doubly motivated —
+  it bears on both §5's depth bias *and* this section's column shift, via its incidence-angle
+  sweep specifically.
+- New: automated LiDAR point selection (§10.6) is added as a candidate future improvement,
+  lower priority than the S3 characterisation, to be pursued only if that data doesn't account
+  for the remaining unexplained residual.
+
+---
+
 ## Appendix: artifact index
 
 | Artifact | Path |
